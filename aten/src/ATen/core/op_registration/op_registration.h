@@ -314,9 +314,15 @@ public:
 
   /**
    * Call this to register an operator. See class doc comment for examples.
+   *
+   * The template parameter 'enabled' is not part of the public API.
+   * Using it may break your code with future versions of PyTorch.
+   * It can be used to enable or disable registration of this operator at
+   * compile time. The operator will only be registered if enabled == true.
    */
+  template<bool enabled = true>
   RegisterOperators&& op(const std::string& schemaOrName, Options&& options = RegisterOperators::options()) && {
-    checkSchemaAndRegisterOp_(schemaOrName, std::move(options));
+    c10::guts::call_if<enabled>([&] {checkSchemaAndRegisterOp_(schemaOrName, std::move(options));});
     return std::move(*this);
   }
 
