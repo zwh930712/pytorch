@@ -3117,15 +3117,11 @@
 
 - func: eq_(Tensor(a!) self, Scalar other) -> Tensor(a!)
   variants: method
-  dispatch:
-    CPU: legacy::cpu::_th_eq_
-    CUDA: legacy::cuda::_th_eq_
+  requires_tensor: True
 
 - func: eq_(Tensor(a!) self, Tensor other) -> Tensor(a!)
   variants: method
-  dispatch:
-    CPU: legacy::cpu::_th_eq_
-    CUDA: legacy::cuda::_th_eq_
+  requires_tensor: True
 
 - func: ne_(Tensor(a!) self, Scalar other) -> Tensor(a!)
   variants: method
@@ -3531,26 +3527,18 @@
     CUDA: legacy::cuda::_th_ne
 
 - func: eq(Tensor self, Scalar other, *, Tensor(a!) out) -> Tensor(a!)
-  dispatch:
-    CPU: legacy::cpu::_th_eq_out
-    CUDA: legacy::cuda::_th_eq_out
+  requires_tensor: True
 
 - func: eq(Tensor self, Scalar other) -> Tensor
   variants: method, function
-  dispatch:
-    CPU: legacy::cpu::_th_eq
-    CUDA: legacy::cuda::_th_eq
+  requires_tensor: True
 
 - func: eq(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)
-  dispatch:
-    CPU: legacy::cpu::_th_eq_out
-    CUDA: legacy::cuda::_th_eq_out
+  requires_tensor: True
 
 - func: eq(Tensor self, Tensor other) -> Tensor
   variants: method, function
-  dispatch:
-    CPU: legacy::cpu::_th_eq
-    CUDA: legacy::cuda::_th_eq
+  requires_tensor: True
 
 - func: ge(Tensor self, Scalar other, *, Tensor(a!) out) -> Tensor(a!)
   dispatch:

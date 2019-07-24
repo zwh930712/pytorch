@@ -7,6 +7,7 @@
 #include <ATen/native/TensorIterator.h>
 #include <ATen/native/BinaryOps.h>
 #include <ATen/native/cpu/Loops.h>
+#include <iostream>
 
 namespace at { namespace native {
 namespace {
@@ -69,6 +70,16 @@ void div_kernel(TensorIterator& iter) {
   }
 }
 
+void eq_kernel(TensorIterator& iter) {
+  AT_DISPATCH_ALL_TYPES(iter.dtype(), "eq_cpu", [&]() {
+    cpu_kernel(iter,
+      [=](scalar_t a, scalar_t b) -> uint8_t {
+        //std::cout << "op(" << a << "," << b << ")" << std::endl;
+        return a == b ? 1 : 0;
+      });
+  });
+}
+
 } // anonymous namespace
 
 
@@ -76,5 +87,6 @@ REGISTER_DISPATCH(add_stub, &add_kernel);
 REGISTER_DISPATCH(sub_stub, &sub_kernel);
 REGISTER_DISPATCH(mul_stub, &mul_kernel);
 REGISTER_DISPATCH(div_stub, &div_kernel);
+REGISTER_DISPATCH(eq_stub, &eq_kernel);
 
 }} // namespace at::native
