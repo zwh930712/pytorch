@@ -3275,7 +3275,7 @@ def foo(x):
         bytesio = io.BytesIO(buffer)
         scripted = torch.jit.load(bytesio)
 
-        fc = FileCheck().check('code/archive.py:4:10')
+        fc = FileCheck().check('code/__torch__.py:6:12')
         fc.run(scripted.graph)
         fc.run(str(scripted.graph))
 
@@ -3360,7 +3360,7 @@ def foo(xyz):
             torch.jit.save(ft3, buffer)
             buffer.seek(0)
             archive = zipfile.ZipFile(buffer)
-            debug_file = archive.open('archive/debug/archive.pkl')
+            debug_file = archive.open('archive/code/__torch__.py.debug_pkl')
             return pickle.load(debug_file), buffer
 
         records1, buffer = debug_records_from_mod(ft3)
@@ -12791,20 +12791,17 @@ a")
             def __init__(self):
                 super(M, self).__init__()
                 for name, value, the_type in tester.get_pickle_values():
-                    setattr(self, name, torch.jit.Attribute(value, the_type))
+                    setattr(self, "_" + name, torch.jit.Attribute(value, the_type))
 
             @torch.jit.script_method
             def forward(self):
-                return (self.dict, self.float, self.int, self.bool, self.tuple,
-                        self.list, self.int_list, self.tensor_list, self.bool_list,
-                        self.float_list, self.str_list, self.none)
+                return (self._dict, self._float, self._int, self._bool, self._tuple,
+                        self._list, self._int_list, self._tensor_list, self._bool_list,
+                        self._float_list, self._str_list, self._none)
 
         with TemporaryFileName() as fname:
             M().save(fname)
-            archive_name = os.path.basename(os.path.normpath(fname))
-            archive = zipfile.ZipFile(fname, 'r')
-            pickled_data = archive.read(os.path.join(archive_name, 'attributes.pkl'))
-            out = pickle.load(io.BytesIO(pickled_data))
+            loaded = torch.jit.load(fname)
 
             def is_tensor_value(item):
                 if isinstance(item, torch.Tensor):
@@ -12812,11 +12809,10 @@ a")
                 if isinstance(item, list):
                     return is_tensor_value(item[0])
                 return False
-
-            for loaded_item, item in zip(out, self.get_pickle_values()):
-                if is_tensor_value(item[1]):
+            for name, value, the_type in self.get_pickle_values():
+                if is_tensor_value(value):
                     continue
-                self.assertEqual(item[1], loaded_item)
+                self.assertEqual(value, getattr(loaded, "_" + name))
 
     @unittest.skipIf(IS_WINDOWS or IS_SANDCASTLE, "NYI: TemporaryFileName support for Windows or Sandcastle")
     def test_old_models_bc(self):
@@ -12951,7 +12947,7 @@ a")
             m.save(fname)
             archive_name = os.path.basename(os.path.normpath(fname))
             archive = zipfile.ZipFile(fname, 'r')
-            pickled_data = archive.read(os.path.join(archive_name, 'attributes.pkl'))
+            pickled_data = archive.read(os.path.join(archive_name, 'data.pkl'))
 
             out = StringIO()
             pickletools.dis(pickled_data, out=out)
@@ -15345,7 +15341,7 @@ class TestAsync(JitTestCase):
                 return torch.neg(x1), self.param, self.const, torch.neg(x2), self.param
 
             @torch.jit.script_method
-            def wait_script(self, x1, x2):
+            def forward(self, x1, x2):
                 fut = torch.jit._fork(self.foo, x1, x2)
                 y_hat = self.foo(x1, x2)
                 y = torch.jit._wait(fut)
@@ -15357,7 +15353,7 @@ class TestAsync(JitTestCase):
         m = Mod()
 
         with torch.jit.optimized_execution(False):
-            y, y_hat = m.wait_script(x1, x2)
+            y, y_hat = m.forward(x1, x2)
 
         self.assertEqual(y, y_hat)
 

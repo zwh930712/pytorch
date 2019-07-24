@@ -507,6 +507,16 @@ std::vector<IValue> Unpickler::parse_ivalue_list() {
   return value.toTuple()->elements();
 }
 
+IValue Unpickler::parseModule() {
+  run();
+  TORCH_CHECK(
+      stack_.size() == 1,
+      "Unpickler expected 1 element on the stack, but found ",
+      stack_.size());
+
+  return stack_[0];
+}
+
 double Unpickler::readFloat() {
   AT_ASSERT(sizeof(double) == 8);
   AT_ASSERT(bytes_ + 8 < end_ptr_);
