@@ -961,6 +961,10 @@ inline Tensor & Tensor::sub_(Scalar other, Scalar alpha) {
     static auto table = globalATenDispatch().getOpTable("aten::sub_(Tensor(a!) self, Scalar other, Scalar alpha=1) -> Tensor(a!)");
     return table->getOp<Tensor & (Tensor &, Scalar, Scalar)>(tensorTypeIdToBackend(type_id()), is_variable())(*this, other, alpha);
 }
+inline Tensor & Tensor::s_native_addmm_(const Tensor & mat1, const Tensor & mat2, Scalar beta, Scalar alpha) {
+    static auto table = globalATenDispatch().getOpTable("aten::s_native_addmm_(Tensor(a!) self, Tensor mat1, Tensor mat2, *, Scalar beta=1, Scalar alpha=1) -> Tensor(a!)");
+    return table->getOp<Tensor & (Tensor &, const Tensor &, const Tensor &, Scalar, Scalar)>(tensorTypeIdToBackend(type_id()), is_variable())(*this, mat1, mat2, beta, alpha);
+}
 inline Tensor Tensor::addmm(const Tensor & mat1, const Tensor & mat2, Scalar beta, Scalar alpha) const {
     static auto table = globalATenDispatch().getOpTable("aten::addmm(Tensor self, Tensor mat1, Tensor mat2, *, Scalar beta=1, Scalar alpha=1) -> Tensor");
     return table->getOp<Tensor (const Tensor &, const Tensor &, const Tensor &, Scalar, Scalar)>(tensorTypeIdToBackend(type_id()), is_variable())(*this, mat1, mat2, beta, alpha);
@@ -1032,6 +1036,10 @@ inline Tensor Tensor::indices() const {
 inline Tensor Tensor::values() const {
     static auto table = globalATenDispatch().getOpTable("aten::values(Tensor(a) self) -> Tensor(a)");
     return table->getOp<Tensor (const Tensor &)>(tensorTypeIdToBackend(type_id()), is_variable())(*this);
+}
+inline Tensor & Tensor::copy_sparse_to_sparse_(const Tensor & src, bool non_blocking) {
+    static auto table = globalATenDispatch().getOpTable("aten::copy_sparse_to_sparse_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)");
+    return table->getOp<Tensor & (Tensor &, const Tensor &, bool)>(tensorTypeIdToBackend(type_id()), is_variable())(*this, src, non_blocking);
 }
 inline int64_t Tensor::numel() const {
     static auto table = globalATenDispatch().getOpTable("aten::numel(Tensor self) -> int");

@@ -2453,6 +2453,7 @@
     CUDA: s_addmm_sparse_dense_cuda
 
 - func: s_native_addmm_(Tensor(a!) self, Tensor mat1, Tensor mat2, *, Scalar beta=1, Scalar alpha=1) -> Tensor(a!)
+  variants: function, method
   dispatch:
     CPU: s_addmm_sparse_dense_cpu_
     CUDA: s_addmm_sparse_dense_cuda_
@@ -2755,7 +2756,7 @@
   requires_tensor: True
 
 - func: copy_sparse_to_sparse_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)
-  variants: function
+  variants: function, method
   dispatch:
     SparseCPU: copy_sparse_
     SparseCUDA: copy_sparse_

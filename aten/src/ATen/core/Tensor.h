@@ -585,6 +585,7 @@ class CAFFE2_API Tensor {
   Tensor & sub_(const Tensor & other, Scalar alpha=1);
   Tensor sub(Scalar other, Scalar alpha=1) const;
   Tensor & sub_(Scalar other, Scalar alpha=1);
+  Tensor & s_native_addmm_(const Tensor & mat1, const Tensor & mat2, Scalar beta=1, Scalar alpha=1);
   Tensor addmm(const Tensor & mat1, const Tensor & mat2, Scalar beta=1, Scalar alpha=1) const;
   Tensor & addmm_(const Tensor & mat1, const Tensor & mat2, Scalar beta=1, Scalar alpha=1);
   Tensor & sparse_resize_(IntArrayRef size, int64_t sparse_dim, int64_t dense_dim);
@@ -603,6 +604,7 @@ class CAFFE2_API Tensor {
   Tensor & _coalesced_(bool coalesced);
   Tensor indices() const;
   Tensor values() const;
+  Tensor & copy_sparse_to_sparse_(const Tensor & src, bool non_blocking=false);
   int64_t numel() const;
   std::vector<Tensor> unbind(int64_t dim=0) const;
   Tensor to_sparse(int64_t sparse_dim) const;
