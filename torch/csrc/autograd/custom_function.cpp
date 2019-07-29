@@ -100,4 +100,50 @@ variable_list _wrap_outputs(const variable_list &input_vars,
   return outputs;
 }
 
+void AutogradContext::save_for_backward(const variable_list &to_save) {
+  saved_variables.clear();
+  saved_variables.reserve(to_save.size());
+  auto ptr = grad_fn.lock();
+  for(auto& var : to_save) {
+    saved_variables.emplace_back(var, (var.grad_fn().get() == ptr.get()));
+  }
+}
+
+void AutogradContext::mark_dirty(const variable_list &inputs) {
+  dirty_inputs.clear();
+  dirty_inputs.reserve(inputs.size());
+  for(auto& var : inputs) {
+    dirty_inputs.insert(var.unsafeGetTensorImpl());
+  }
+}
+
+void AutogradContext::mark_non_differentiable(const variable_list &outputs) {
+  non_differentiable.clear();
+  non_differentiable.reserve(outputs.size());
+  for(auto& var : outputs) {
+    non_differentiable.insert(var.unsafeGetTensorImpl());
+  }
+}
+
+void AutogradContext::clear_saved() {
+  saved_variables.clear();
+}
+
+variable_list AutogradContext::get_saved_variables() const {
+  variable_list saved;
+  saved.reserve(saved_variables.size());
+  auto ptr = grad_fn.lock();
+  for (auto& var : saved_variables) {
+    saved.push_back(var.unpack(ptr));
+  }
+  return saved;
+}
+
+const std::unordered_set<at::TensorImpl*>& AutogradContext::get_dirty() const {
+  return dirty_inputs;
+}
+
+const std::unordered_set<at::TensorImpl*>& AutogradContext::get_non_differentiable() const {
+  return non_differentiable;
+}
 }} // namespace torch::autograd
