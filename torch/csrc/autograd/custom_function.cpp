@@ -3,6 +3,21 @@
 
 namespace torch { namespace autograd {
 
+VariableInfo::VariableInfo(const Variable& var)
+  : backend(tensorTypeIdToBackend(var.type_id()))
+  , device(var.device())
+  , scalar_type(var.scalar_type())
+  , size(var.sizes().vec())
+  , requires_grad(var.requires_grad()) {
+}
+
+Variable VariableInfo::zeros(at::OptionalDeviceGuard& device_guard) const {
+  // NB: This will NOT work if we ever get mixed device gradients
+  device_guard.reset_device(device);
+  return at::zeros(size,
+    at::TensorOptions(scalar_type).device(backendToDeviceType(backend)).layout(layout_from_backend(backend)).is_variable(true));
+}
+
 variable_list _wrap_outputs(const variable_list &input_vars,
   const std::unordered_set<at::TensorImpl*> &non_differentiable,
   const std::unordered_set<at::TensorImpl*> &dirty_inputs,
@@ -84,8 +99,5 @@ variable_list _wrap_outputs(const variable_list &input_vars,
 
   return outputs;
 }
-
-
-
 
 }} // namespace torch::autograd
