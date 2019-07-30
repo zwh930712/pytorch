@@ -2,6 +2,9 @@
 
 #include <torch/csrc/autograd/function.h>
 #include <torch/csrc/autograd/variable.h>
+#include <ATen/core/ivalue.h>
+#include <c10/util/flat_hash_map.h>
+#include <deque>
 
 namespace torch { namespace autograd {
 
@@ -18,33 +21,82 @@ TORCH_API variable_list _wrap_outputs(
 // forward() can take as many arguments as you want and should return a
 // variable list. Use of any direct Variable arguments will be registered in
 // the graph but no vectors/sets or any other data structures will be traversed.
+// It should take an AutogradContext* as the first argument. Variables can be
+// saved in the ctx using save_for_backward() and other data can be saved in the
+// map ctx.save in the form of <std::string, at::IValue> pairs.
 //
-// backward() will be given a variable list containing as many Variables as
-// there were outputs from forward. It should return as many Variables as there
-// were inputs with each of them containing the gradient w.r.t. its
-// corresponding input
+// backward() should take an AutogradContext* and a variable list containing as
+// many Variables as there were outputs from forward as arguments. It should
+//  return as many Variables as there were inputs with each of them containing
+// the gradient w.r.t. its corresponding input. Variables saved in forward can
+// be accessed with ctx->get_saved_variables() and other saved data can be
+// accessed from ctx->save.
 //
 // For example:
 // class MyFunction : public Function<MyFunction> {
 //   public:
-//   static variable_list forward(AutogradContext *ctx, int n, Variable var);
+//   static variable_list forward(AutogradContext *ctx, int n, Variable var) {
+//      // Save data for backward in context
+//      ctx->save["n"] = n;
+//      var.mul_(2);
+//      // Mark var as modified by inplace operation
+//      ctx->mark_dirty({var});
+//      return std::vector<Variable>({var});
+//   }
 //
-//   static variable_list backward(AutogradContext *ctx, variable_list grad_output);
+//   static variable_list backward(AutogradContext *ctx, variable_list grad_output) {
+//      // Use data saved in forward
+//      auto n = ctx->save["n"].toInt();
+//      return std::vector<Variable>({grad_output[0]*n});
+//   }
 // };
+//
 // To use MyFunction
 // Variable x;
-// MyFunction::apply(6, x);
+// auto y = MyFunction::apply(6, x);
+// Example backward call:
+// y[0].sum().backward();
 template <class T>
 struct TORCH_API Function {
   template<typename... Args>
   static variable_list apply(Args&&... args);
 };
 
-struct AutogradContext {
-  std::vector<torch::autograd::SavedVariable> saved_variables_;
+// Context to save information during forward that can be accessed in backward
+struct TORCH_API AutogradContext {
+  // Can be used to save non-variable data for backward()
+  ska::flat_hash_map<std::string, at::IValue> saved_data;
 
+  // Saves the list of variables for a future call to backward(). This
+  // should be called at most once from inside of forward().
+  void save_for_backward(const variable_list &to_save);
+  // Marks variables in the list as modified in an in-place operation. This
+  // should be called at most once from inside of forward() and all arguments
+  // should be inputs.
+  void mark_dirty(const variable_list &inputs);
+  // Marks outputs in the list as not requiring gradients. This should be called
+  // at most once from inside of forward() and all arguments should be outputs.
+  void mark_non_differentiable(const variable_list &outputs);
+
+  // Get the list of variables that were saved in forward using
+  // save_for_backward(). Before returning them to the user, a check is made to
+  // ensure that they were not modified by any in-place operations.
+  variable_list get_saved_variables() const;
+  const std::unordered_set<at::TensorImpl*>& get_dirty() const;
+  const std::unordered_set<at::TensorImpl*>& get_non_differentiable() const;
+
+private:
   std::unordered_set<at::TensorImpl*> non_differentiable_;
   std::unordered_set<at::TensorImpl*> dirty_inputs_;
+  std::deque<torch::autograd::SavedVariable> saved_variables_;
+  variable_list to_save_;
+
+  std::weak_ptr<Node> grad_fn_;
+  bool has_freed_buffers;
+
+  void save_variables();
+
+  template <class T> friend struct CppNode;
 };
 
 struct TORCH_API VariableInfo {
@@ -71,6 +123,9 @@ struct CppNode : public Node {
   std::vector<VariableInfo> output_info_;
 
   void release_variables() override;
+
+  void set_ctx_grad_fn(const std::shared_ptr<Node> &node);
+  void save_variables_to_ctx();
 };
 
 template <typename T>
@@ -99,7 +154,7 @@ void extract_vars(std::vector<bool> &is_var, variable_list& list, Args&& ... arg
 template<class T>
 template<typename... Args>
 variable_list Function<T>::apply(Args&&... args) {
-  std::shared_ptr<CppNode<T>> node(new CppNode<T>, deleteNode);
+  std::shared_ptr<CppNode<T>> node(new CppNode<T>(), deleteNode);
   variable_list input_vars;
 
   const size_t num_inputs = sizeof...(Args);
@@ -125,7 +180,7 @@ variable_list Function<T>::apply(Args&&... args) {
     outputs = T::forward(&node->ctx_, std::forward<Args>(args)...);
   }
 
-  auto wrapped_outputs = _wrap_outputs(input_vars, node->ctx_.non_differentiable_, node->ctx_.dirty_inputs_, outputs, is_executable ? node : nullptr);
+  auto wrapped_outputs = _wrap_outputs(input_vars, node->ctx_.get_non_differentiable(), node->ctx_.get_dirty(), outputs, is_executable ? node : nullptr);
 
   node->output_info_.reserve(wrapped_outputs.size());
   for (auto& output : wrapped_outputs) {
@@ -207,5 +262,18 @@ variable_list CppNode<T>::apply(variable_list&& inputs) {
 
 template<class T>
 void CppNode<T>::release_variables() {
+  // ctx_.saved_variables_.clear();
+  ctx_.has_freed_buffers = true;
 }
+
+template<class T>
+void CppNode<T>::save_variables_to_ctx() {
+  ctx_.save_variables();
+}
+
+template<class T>
+void CppNode<T>::set_ctx_grad_fn(const std::shared_ptr<Node> &node) {
+  ctx_.grad_fn_ = node;
+}
+
 }} // namespace torch::autograd
