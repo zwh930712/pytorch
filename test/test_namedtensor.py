@@ -7,11 +7,8 @@ import torch
 import sys
 
 
-def namedtensor_enabled():
-    return torch.__config__._BUILD_NAMEDTENSOR
-
 skipIfNamedTensorDisabled = \
-    unittest.skipIf(not namedtensor_enabled(),
+    unittest.skipIf(not torch.compiled_with_BUILD_NAMEDTENSOR(),
                     'PyTorch not compiled with namedtensor support')
 
 def pass_name_to_python_arg_parser(name):
@@ -118,6 +115,20 @@ class TestNamedTensor(TestCase):
         with self.assertRaisesRegex(RuntimeError, 'duplicate names'):
             tensor.set_names_(['N', 'N'])
 
+    def test_set_names(self):
+        tensor = torch.empty(1, 1, names=('N', 'C'))
+
+        self.assertEqual(tensor.set_names(None).names, (None, None))
+        self.assertEqual(tensor.set_names(['H', 'W']).names, ('H', 'W'))
+
+        # Check that we didn't modify tensor.names
+        self.assertEqual(tensor.names, ('N', 'C'))
+
+        with self.assertRaisesRegex(RuntimeError, 'Number of names'):
+            tensor.set_names(['N', 'C', 'W'])
+        with self.assertRaisesRegex(RuntimeError, 'duplicate names'):
+            tensor.set_names(['N', 'N'])
+
     def test_set_names_property(self):
         tensor = torch.empty(1, 1, names=('N', 'C'))
 
@@ -135,12 +146,6 @@ class TestNamedTensor(TestCase):
     @unittest.skipIf(not TEST_CUDA, 'no CUDA')
     def test_empty_cuda(self):
         self._test_factory(torch.empty, 'cuda')
-
-    def test_view_drops_names(self):
-        for device in torch.testing.get_all_device_types():
-            orig_tensor = torch.empty(2, 2, names=('N', 'D'), device=device)
-            new_tensor = orig_tensor.view(-1)
-            self.assertEqual(new_tensor.names, [None])
 
     def test_size(self):
         t = torch.empty(2, 3, 5, names=('N', None, 'C'))
@@ -318,7 +323,6 @@ class TestNamedTensor(TestCase):
             fn_method_and_inplace('clamp', -1, 1),
             fn_method_and_inplace('clamp_min', -2),
             fn_method_and_inplace('clamp_max', 2),
-            method('clone'),
             method('cauchy_'),
             fn_method_and_inplace('cos'),
             fn_method_and_inplace('cosh'),
@@ -535,6 +539,149 @@ class TestNamedTensor(TestCase):
     @unittest.skipIf(not TEST_CUDA, 'no CUDA')
     def test_as_strided_cuda(self):
         self._test_as_strided('cuda')
+
+    def test_align_to(self):
+        def _test(tensor_namedshape, align_names, expected_sizes, expected_error):
+            tensor_names, tensor_sizes = tensor_namedshape
+            tensor = torch.empty(*tensor_sizes, names=tensor_names)
+            if expected_error is not None:
+                with self.assertRaisesRegex(RuntimeError, expected_error):
+                    tensor.align_to(align_names)
+                return
+
+            output = tensor.align_to(align_names)
+            self.assertEqual(output.shape, expected_sizes)
+            self.assertEqual(output.names, align_names)
+
+        Case = namedtuple('Case', [
+            'tensor_namedshape',
+            'align_names',
+            'expected_sizes',
+            'expected_error',
+        ])
+
+        tests = [
+            # basic tests
+            Case(tensor_namedshape=(['C'], [2]),
+                 align_names=['C'],
+                 expected_sizes=[2],
+                 expected_error=None),
+            Case(tensor_namedshape=(['C'], [2]),
+                 align_names=['D'],
+                 expected_sizes=None,
+                 expected_error='not a subsequence'),
+            Case(tensor_namedshape=(['N', 'C'], [2, 3]),
+                 align_names=['C'],
+                 expected_sizes=None,
+                 expected_error='shorter list of dims'),
+
+            # single-dim alignment test
+            Case(tensor_namedshape=(['C'], [2]),
+                 align_names=['N', 'C'],
+                 expected_sizes=[1, 2],
+                 expected_error=None),
+            Case(tensor_namedshape=[['N'], [2]],
+                 align_names=['N', 'C'],
+                 expected_sizes=[2, 1],
+                 expected_error=None),
+
+            # multiple dim alignment test
+            Case(tensor_namedshape=[['N', 'C'], [2, 3]],
+                 align_names=['N', 'H', 'C', 'W'],
+                 expected_sizes=[2, 1, 3, 1],
+                 expected_error=None),
+            Case(tensor_namedshape=[['N', 'C'], [2, 3]],
+                 align_names=['C', 'H', 'N', 'W'],
+                 expected_sizes=None,
+                 expected_error='not a subsequence'),
+
+            # scalar tensor tests
+            Case(tensor_namedshape=[None, [[]]],
+                 align_names=['N', 'C'],
+                 expected_sizes=[1, 1],
+                 expected_error=None),
+            Case(tensor_namedshape=[[], [[]]],
+                 align_names=[None, None],
+                 expected_sizes=[1, 1],
+                 expected_error=None),
+
+            # unnamed tensor tests
+            Case(tensor_namedshape=[None, [2, 3]],
+                 align_names=[None],
+                 expected_sizes=None,
+                 expected_error='shorter list'),
+            Case(tensor_namedshape=[None, [2, 3]],
+                 align_names=[None, None],
+                 expected_sizes=[2, 3],
+                 expected_error=None),
+            Case(tensor_namedshape=[None, [2, 3]],
+                 align_names=[None, None, None],
+                 expected_sizes=[1, 2, 3],
+                 expected_error=None),
+            Case(tensor_namedshape=[None, [2]],
+                 align_names=['N'],
+                 expected_sizes=None,
+                 expected_error='not a subsequence'),
+
+            # unnamed dim alignment tests
+            Case(tensor_namedshape=[[None], [2]],
+                 align_names=['N', None],
+                 expected_sizes=[1, 2],
+                 expected_error=None),
+            Case(tensor_namedshape=[[None], [2]],
+                 align_names=['N', None, None, None],
+                 expected_sizes=[1, 1, 1, 2],
+                 expected_error=None),
+            Case(tensor_namedshape=[['N'], [2]],
+                 align_names=['N', None, None, None],
+                 expected_sizes=[2, 1, 1, 1],
+                 expected_error=None),
+            Case(tensor_namedshape=[[None, 'N', None], [2, 3, 5]],
+                 align_names=[None, None, 'N', None],
+                 expected_sizes=[1, 2, 3, 5],
+                 expected_error=None),
+            Case(tensor_namedshape=[[None], [2]],
+                 align_names=[None, 'N'],
+                 expected_sizes=None,
+                 expected_error='absolute position from the right'),
+            Case(tensor_namedshape=[None, [2]],
+                 align_names=[None, 'N'],
+                 expected_sizes=None,
+                 expected_error='absolute position from the right'),
+            Case(tensor_namedshape=[[None, 'N'], [2, 3]],
+                 align_names=[None, 'C', 'N'],
+                 expected_sizes=None,
+                 expected_error='absolute position from the right'),
+        ]
+
+        for test in tests:
+            _test(*test)
+
+    # TODO(rzou): Some form of this check should be added to self.assertEqual.
+    # Right now I don't know what it should look like.
+    def assertTensorDataAndNamesEqual(self, x, y):
+        self.assertEqual(x.names, y.names)
+        unnamed_x = x.set_names(None)
+        unnamed_y = y.set_names(None)
+        self.assertEqual(unnamed_x, unnamed_y)
+
+    def test_align_tensors(self):
+        # align_tensors shares code with align_to. test_align_to already tests
+        # the alignment rules, so we don't do that again here.
+        def reference_fn(*tensors):
+            longest_names = tensors[0].names
+            for tensor in tensors:
+                if len(tensor.names) > len(longest_names):
+                    longest_names = tensor.names
+            return [tensor.align_to(longest_names) for tensor in tensors]
+
+        x = torch.empty(1, 1, names=('N', 'H'))
+        y = torch.empty(2, 3, 5, names=('N', 'C', 'H'))
+        z = torch.empty(2, names=('N',))
+        output = torch.align_tensors(x, y, z)
+        expected_tensors = reference_fn(x, y, z)
+        for tensor, expected in zip(output, expected_tensors):
+            self.assertTensorDataAndNamesEqual(tensor, expected)
 
 # Disable all tests if named tensor is not available.
 for attr in dir(TestNamedTensor):

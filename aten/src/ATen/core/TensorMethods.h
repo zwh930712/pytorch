@@ -71,6 +71,18 @@ inline Tensor & Tensor::set_names_(c10::optional<DimnameList> names) {
     return table->getOp<Tensor & (Tensor &, c10::optional<DimnameList>)>(tensorTypeIdToBackend(type_id()), is_variable())(*this, names);
 }
 #endif
+#ifdef BUILD_NAMEDTENSOR
+inline Tensor Tensor::set_names(c10::optional<DimnameList> names) const {
+    static auto table = globalATenDispatch().getOpTable("aten::set_names(Tensor(a!) self, Dimname[]? names) -> Tensor(a!)");
+    return table->getOp<Tensor (const Tensor &, c10::optional<DimnameList>)>(tensorTypeIdToBackend(type_id()), is_variable())(*this, names);
+}
+#endif
+#ifdef BUILD_NAMEDTENSOR
+inline Tensor Tensor::align_to(DimnameList names) const {
+    static auto table = globalATenDispatch().getOpTable("aten::align_to(Tensor self, DimnameList names) -> Tensor");
+    return table->getOp<Tensor (const Tensor &, DimnameList)>(tensorTypeIdToBackend(type_id()), is_variable())(*this, names);
+}
+#endif
 inline Tensor Tensor::abs() const {
     static auto table = globalATenDispatch().getOpTable("aten::abs(Tensor self) -> Tensor");
     return table->getOp<Tensor (const Tensor &)>(tensorTypeIdToBackend(type_id()), is_variable())(*this);
@@ -590,6 +602,10 @@ inline Tensor Tensor::permute(IntArrayRef dims) const {
 inline Tensor Tensor::numpy_T() const {
     static auto table = globalATenDispatch().getOpTable("aten::numpy_T(Tensor(a) self) -> Tensor(a)");
     return table->getOp<Tensor (const Tensor &)>(tensorTypeIdToBackend(type_id()), is_variable())(*this);
+}
+inline bool Tensor::is_pinned() const {
+    static auto table = globalATenDispatch().getOpTable("aten::is_pinned(Tensor self) -> bool");
+    return table->getOp<bool (const Tensor &)>(tensorTypeIdToBackend(type_id()), is_variable())(*this);
 }
 inline Tensor Tensor::pin_memory() const {
     static auto table = globalATenDispatch().getOpTable("aten::pin_memory(Tensor self) -> Tensor");
@@ -1545,8 +1561,8 @@ inline Tensor Tensor::addcdiv(const Tensor & tensor1, const Tensor & tensor2, Sc
     static auto table = globalATenDispatch().getOpTable("aten::addcdiv(Tensor self, Tensor tensor1, Tensor tensor2, *, Scalar value=1) -> Tensor");
     return table->getOp<Tensor (const Tensor &, const Tensor &, const Tensor &, Scalar)>(tensorTypeIdToBackend(type_id()), is_variable())(*this, tensor1, tensor2, value);
 }
-inline std::tuple<Tensor,Tensor> Tensor::gels(const Tensor & A) const {
-    static auto table = globalATenDispatch().getOpTable("aten::gels(Tensor self, Tensor A) -> (Tensor solution, Tensor QR)");
+inline std::tuple<Tensor,Tensor> Tensor::lstsq(const Tensor & A) const {
+    static auto table = globalATenDispatch().getOpTable("aten::lstsq(Tensor self, Tensor A) -> (Tensor solution, Tensor QR)");
     return table->getOp<std::tuple<Tensor,Tensor> (const Tensor &, const Tensor &)>(tensorTypeIdToBackend(type_id()), is_variable())(*this, A);
 }
 inline std::tuple<Tensor,Tensor> Tensor::triangular_solve(const Tensor & A, bool upper, bool transpose, bool unitriangular) const {
@@ -1819,6 +1835,7 @@ inline bool is_quantized(Tensor self) {
   }
 
 AT_FORALL_SCALAR_TYPES_WITH_COMPLEX_EXCEPT_COMPLEX_HALF(DEFINE_CAST)
+AT_FORALL_QINT_TYPES(DEFINE_CAST)
 #undef DEFINE_CAST
 
 #define DEFINE_ITEM(T, name, _)   \
@@ -1827,7 +1844,7 @@ AT_FORALL_SCALAR_TYPES_WITH_COMPLEX_EXCEPT_COMPLEX_HALF(DEFINE_CAST)
     return item().to##name();     \
   }
 
-AT_FORALL_SCALAR_TYPES_WITH_COMPLEX_EXCEPT_COMPLEX_HALF_AND_QINT(DEFINE_ITEM)
+AT_FORALL_SCALAR_TYPES_WITH_COMPLEX_EXCEPT_COMPLEX_HALF(DEFINE_ITEM)
 #undef DEFINE_ITEM
 
 } //namespace at
