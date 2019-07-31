@@ -7,11 +7,8 @@ import torch
 import sys
 
 
-def namedtensor_enabled():
-    return torch.__config__._BUILD_NAMEDTENSOR
-
 skipIfNamedTensorDisabled = \
-    unittest.skipIf(not namedtensor_enabled(),
+    unittest.skipIf(not torch.compiled_with_BUILD_NAMEDTENSOR(),
                     'PyTorch not compiled with namedtensor support')
 
 def pass_name_to_python_arg_parser(name):
@@ -118,6 +115,20 @@ class TestNamedTensor(TestCase):
         with self.assertRaisesRegex(RuntimeError, 'duplicate names'):
             tensor.set_names_(['N', 'N'])
 
+    def test_set_names(self):
+        tensor = torch.empty(1, 1, names=('N', 'C'))
+
+        self.assertEqual(tensor.set_names(None).names, (None, None))
+        self.assertEqual(tensor.set_names(['H', 'W']).names, ('H', 'W'))
+
+        # Check that we didn't modify tensor.names
+        self.assertEqual(tensor.names, ('N', 'C'))
+
+        with self.assertRaisesRegex(RuntimeError, 'Number of names'):
+            tensor.set_names(['N', 'C', 'W'])
+        with self.assertRaisesRegex(RuntimeError, 'duplicate names'):
+            tensor.set_names(['N', 'N'])
+
     def test_set_names_property(self):
         tensor = torch.empty(1, 1, names=('N', 'C'))
 
@@ -135,12 +146,6 @@ class TestNamedTensor(TestCase):
     @unittest.skipIf(not TEST_CUDA, 'no CUDA')
     def test_empty_cuda(self):
         self._test_factory(torch.empty, 'cuda')
-
-    def test_view_drops_names(self):
-        for device in torch.testing.get_all_device_types():
-            orig_tensor = torch.empty(2, 2, names=('N', 'D'), device=device)
-            new_tensor = orig_tensor.view(-1)
-            self.assertEqual(new_tensor.names, [None])
 
     def test_size(self):
         t = torch.empty(2, 3, 5, names=('N', None, 'C'))
@@ -318,7 +323,6 @@ class TestNamedTensor(TestCase):
             fn_method_and_inplace('clamp', -1, 1),
             fn_method_and_inplace('clamp_min', -2),
             fn_method_and_inplace('clamp_max', 2),
-            method('clone'),
             method('cauchy_'),
             fn_method_and_inplace('cos'),
             fn_method_and_inplace('cosh'),

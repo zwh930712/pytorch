@@ -355,6 +355,9 @@ class CAFFE2_API Tensor {
   #ifdef BUILD_NAMEDTENSOR
   Tensor & set_names_(c10::optional<DimnameList> names);
   #endif
+  #ifdef BUILD_NAMEDTENSOR
+  Tensor set_names(c10::optional<DimnameList> names) const;
+  #endif
   Tensor abs() const;
   Tensor & abs_();
   Tensor acos() const;
@@ -485,6 +488,7 @@ class CAFFE2_API Tensor {
   Tensor narrow(int64_t dim, int64_t start, int64_t length) const;
   Tensor permute(IntArrayRef dims) const;
   Tensor numpy_T() const;
+  bool is_pinned() const;
   Tensor pin_memory() const;
   Tensor pinverse(double rcond=1e-15) const;
   Tensor reciprocal() const;
@@ -731,7 +735,7 @@ class CAFFE2_API Tensor {
   Tensor gather(int64_t dim, const Tensor & index, bool sparse_grad=false) const;
   Tensor addcmul(const Tensor & tensor1, const Tensor & tensor2, Scalar value=1) const;
   Tensor addcdiv(const Tensor & tensor1, const Tensor & tensor2, Scalar value=1) const;
-  std::tuple<Tensor,Tensor> gels(const Tensor & A) const;
+  std::tuple<Tensor,Tensor> lstsq(const Tensor & A) const;
   std::tuple<Tensor,Tensor> triangular_solve(const Tensor & A, bool upper=true, bool transpose=false, bool unitriangular=false) const;
   std::tuple<Tensor,Tensor> symeig(bool eigenvectors=false, bool upper=true) const;
   std::tuple<Tensor,Tensor> eig(bool eigenvectors=false) const;
