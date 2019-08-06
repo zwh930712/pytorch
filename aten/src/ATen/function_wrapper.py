@@ -119,6 +119,13 @@ BACKEND_FUNCTION_REGISTRATION = CodeTemplate("""\
 .registerOp<${return_type} (${formals_types})>(Backend::${Backend}, "${schema_string}", &${Type}::${api_name})
 """)
 
+C10_DEFAULT_FUNCTION_REGISTRATION = CodeTemplate("""\
+.op("${schema_string}", torch::RegisterOperators::options().impl_unboxedOnlyCatchAllKernel<${return_type} (${formals_types}), &TypeDefault::${api_name}>().aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+""")
+C10_BACKEND_FUNCTION_REGISTRATION = CodeTemplate("""\
+.op("${schema_string}", torch::RegisterOperators::options().impl_unboxedOnlyKernel<${return_type} (${formals_types}), &${Type}::${api_name}>(c10::backendToTensorTypeId(Backend::${Backend})).aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+""")
+
 # Generate a file that lists all functions and their schema string. Used for XLA
 REGISTRATION_DECLARATION = CodeTemplate("""\
 ${return_type} ${api_name}(${type_method_formals}); // ${schema_string}
@@ -399,6 +406,7 @@ TopEnvironment = TypedDict('TopEnvironment', {
     'type_registrations': List[str],
     'type_headers': List[str],
     'function_registrations': List[str],
+    'c10_function_registrations': List[str],
     'type_method_declarations': List[str],
     'type_method_definitions': List[str],
     'tensor_method_declarations': List[str],
@@ -561,6 +569,7 @@ FunctionOption = TypedDict('FunctionOption', {
 OutputDeclaration = NamedTuple('OutputDeclaration', [
     ('name', str),
     ('overload_name', str),
+    ('exclude_from_c10_dispatcher', bool),
     ('matches_jit_signature', bool),
     ('schema_string', str),
     ('method_prefix_derived', str),
@@ -1158,6 +1167,9 @@ def create_generic(top_env, declarations):
                 check_namedtensor_enabled(NATIVE_DISPATCH_DEFINITION_DEFAULT.substitute(option)))
             top_env['function_registrations'].append(
                 check_namedtensor_enabled(DEFAULT_FUNCTION_REGISTRATION.substitute(option)))
+            if not option['exclude_from_c10_dispatcher']:
+                top_env['c10_function_registrations'].append(
+                    check_namedtensor_enabled(C10_DEFAULT_FUNCTION_REGISTRATION.substitute(option)))
 
         # generate the at::native function declarations (i.e. what the user will implement)
         if isinstance(type_method_dispatch, dict):
@@ -1198,6 +1210,7 @@ def create_generic(top_env, declarations):
         return OutputDeclaration(
             name=option['api_name'],
             overload_name=option['overload_name'],
+            exclude_from_c10_dispatcher=option['exclude_from_c10_dispatcher'],
             matches_jit_signature=option["matches_jit_signature"],
             schema_string=option["schema_string"],
             method_prefix_derived=option['method_prefix_derived'],
@@ -1243,6 +1256,7 @@ def create_derived(backend_type_env, declarations):
     type_object_declarations = []  # type: List[str]
     type_object_definitions = []  # type: List[str]
     function_registrations = []  # type: List[str]
+    c10_function_registrations = []  # type: List[str]
     legacy_th_declarations = []  # type: List[str]
     legacy_th_definitions = []  # type: List[str]
     is_cuda = 'CUDA' in backend_type_env['Backend']
@@ -1637,6 +1651,9 @@ def create_derived(backend_type_env, declarations):
                         NATIVE_DISPATCH_DEFINITION_BACKEND.substitute(env))
                     function_registrations.append(
                         BACKEND_FUNCTION_REGISTRATION.substitute(env))
+                    if not option['exclude_from_c10_dispatcher']:
+                        c10_function_registrations.append(
+                            C10_BACKEND_FUNCTION_REGISTRATION.substitute(env))
 
     for declaration in declarations:
         for option in declaration['options']:
@@ -1650,5 +1667,5 @@ def create_derived(backend_type_env, declarations):
                         process_native(option)
                 except NYIError:
                     pass
-    return (type_object_declarations, type_object_definitions, function_registrations, legacy_th_declarations,
+    return (type_object_declarations, type_object_definitions, function_registrations, c10_function_registrations, legacy_th_declarations,
             legacy_th_definitions)
