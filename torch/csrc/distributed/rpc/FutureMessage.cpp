@@ -27,9 +27,6 @@ void FutureMessage::markCompleted() {
 }
 
 const Message& FutureMessage::message() {
-  std::unique_lock<std::mutex> lock(mutex_);
-  TORCH_CHECK(completed(), "Cannot retrieve message before completed.");
-
   return message_;
 }
 
@@ -40,8 +37,10 @@ bool FutureMessage::completed() const {
 void FutureMessage::addCallback(const FutureMessage::Callback& callback) {
   std::unique_lock<std::mutex> lock(mutex_);
   if (completed()) {
+    // if completed, previously inserted Callbacks should have been fired. So
+    // invoking this callback in place does not violate the order.
     lock.unlock();
-    callback(message_);
+    callback();
     return;
   }
   callbacks.push_back(callback);
@@ -52,7 +51,7 @@ void FutureMessage::fireCallbacks() {
   // There is no need to protect callbacks with the lock.
   // Once completed_ is set to true, no one can add new callback to the list.
   for (auto& callback : callbacks) {
-    callback(message_);
+    callback();
   }
   callbacks.clear();
 }

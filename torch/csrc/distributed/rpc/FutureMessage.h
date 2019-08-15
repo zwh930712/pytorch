@@ -13,10 +13,10 @@ namespace rpc {
 struct TORCH_API FutureMessage final {
 
  public:
-  using Callback = std::function<void(const Message&)>;
+  // Keep cb the same as ivalue::Future to make it easy for future merge after
+  // we made Message an IValue type.
+  using Callback = std::function<void(void)>;
 
-  // TODO: add a get() API that returns immediately with an optional Message
-  // object.
   const Message& wait();
   void markCompleted(Message message);
   void markCompleted();
