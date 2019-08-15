@@ -983,7 +983,31 @@ jobs:
       PYTHON_VERSION: "3.6"
     <<: *pytorch_linux_build_defaults
 
-  
+  pytorch_linux_xenial_py3_clang5_android_ndk_r19c_build_shared:
+    environment:
+      BUILD_ENVIRONMENT: pytorch-linux-xenial-py3-clang5-android-ndk-r19c-build
+      DOCKER_IMAGE: "308535385114.dkr.ecr.us-east-1.amazonaws.com/pytorch/pytorch-linux-xenial-py3-clang5-android-ndk-r19c:327"
+      PYTHON_VERSION: "3.6"
+      DBUILD_CAFFE2_MOBILE: "OFF"
+      BUILD_SHARED_LIBS: "ON"
+    <<: *pytorch_linux_build_defaults
+
+  wip_pytorch_linux_xenial_py3_clang5_android_ndk_r19c_build:
+    resource_class: large
+    machine:
+      image: ubuntu-1604:201903-01
+    environment:
+      BUILD_ENVIRONMENT: pytorch-linux-xenial-py3-clang5-android-ndk-r19c-build
+      DOCKER_IMAGE: "308535385114.dkr.ecr.us-east-1.amazonaws.com/pytorch/pytorch-linux-xenial-py3-clang5-android-ndk-r19c:327"
+      PYTHON_VERSION: "3.6"
+    steps:
+    - run:
+        name: gradle build
+        no_output_timeout: "90m"
+        command: |
+          set -eux -o pipefail
+          echo "test ok"
+
   setup:
     docker:
       - image: circleci/python:3.7.3
@@ -2835,6 +2859,15 @@ workflows:
       - pytorch_linux_xenial_py3_clang5_android_ndk_r19c_build:
           requires:
             - setup
+
+      - pytorch_linux_xenial_py3_clang5_android_ndk_r19c_build_shared:
+          requires:
+            - setup
+
+      - wip_pytorch_linux_xenial_py3_clang5_android_ndk_r19c_build:
+          requires:
+            - pytorch_linux_xenial_py3_clang5_android_ndk_r19c_build_shared
+
       # Warning: indentation here matters!
 
       # Pytorch MacOS builds

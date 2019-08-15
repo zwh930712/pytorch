@@ -11,46 +11,47 @@ import sys
 default_set = [
     # PyTorch CPU
     # Selected oldest Python 2 version to ensure Python 2 coverage
-    'pytorch-linux-trusty-py2.7.9',
+    #'pytorch-linux-trusty-py2.7.9',
     # PyTorch CUDA
-    'pytorch-linux-xenial-cuda9-cudnn7-py3',
+    #'pytorch-linux-xenial-cuda9-cudnn7-py3',
     # PyTorch ASAN
-    'pytorch-linux-xenial-py3-clang5-asan',
+    #'pytorch-linux-xenial-py3-clang5-asan',
     # PyTorch DEBUG
-    'pytorch-linux-trusty-py3.6-gcc5.4',
+    #'pytorch-linux-trusty-py3.6-gcc5.4',
 
     # Caffe2 CPU
-    'caffe2-py2-mkl-ubuntu16.04',
+    #'caffe2-py2-mkl-ubuntu16.04',
     # Caffe2 CUDA
-    'caffe2-py2-cuda9.1-cudnn7-ubuntu16.04',
+    #'caffe2-py2-cuda9.1-cudnn7-ubuntu16.04',
     # Caffe2 ONNX
-    'caffe2-onnx-py2-gcc5-ubuntu16.04',
-    'caffe2-onnx-py3.6-clang7-ubuntu16.04',
+    #'caffe2-onnx-py2-gcc5-ubuntu16.04',
+    #'caffe2-onnx-py3.6-clang7-ubuntu16.04',
     # Caffe2 Clang
-    'caffe2-py2-clang7-ubuntu16.04',
+    #'caffe2-py2-clang7-ubuntu16.04',
     # Caffe2 CMake
-    'caffe2-cmake-cuda9.0-cudnn7-ubuntu16.04',
+    #'caffe2-cmake-cuda9.0-cudnn7-ubuntu16.04',
 
     # Binaries
-    'manywheel 2.7mu cpu devtoolset7',
-    'libtorch 2.7m cpu devtoolset7',
+    #'manywheel 2.7mu cpu devtoolset7',
+    #'libtorch 2.7m cpu devtoolset7',
 
     # Caffe2 Android
-    'caffe2-py2-android-ubuntu16.04',
+    #'caffe2-py2-android-ubuntu16.04',
     # Caffe2 OSX
-    'caffe2-py2-system-macos10.13',
+    #'caffe2-py2-system-macos10.13',
     # PyTorch OSX
-    'pytorch-macos-10.13-cuda9.2-cudnn7-py3',
+    #'pytorch-macos-10.13-cuda9.2-cudnn7-py3',
     # PyTorch Android
-    'pytorch-linux-xenial-py3-clang5-android-ndk-r19c',
+    #'pytorch-linux-xenial-py3-clang5-android-ndk-r19c',
+    'wip_pytorch_linux_xenial_py3_clang5_android_ndk_r19c_build',
 
     # XLA
-    'pytorch-xla-linux-trusty-py3.6-gcc5.4',
+    #'pytorch-xla-linux-trusty-py3.6-gcc5.4',
 
     # Other checks
-    'pytorch-short-perf-test-gpu',
-    'pytorch-python-doc-push',
-    'pytorch-cpp-doc-push',
+    #'pytorch-short-perf-test-gpu',
+    #'pytorch-python-doc-push',
+    #'pytorch-cpp-doc-push',
 ]
 
 # Takes in commit message to analyze via stdin
