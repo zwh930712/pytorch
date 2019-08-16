@@ -321,5 +321,16 @@ void ConstantPropagation(std::shared_ptr<Graph>& graph) {
   cp.run();
   EliminateDeadCode(graph);
 }
+
+void ConstantPropagation(script::Module& m) {
+  for (auto submodule : m.get_modules()) {
+    ConstantPropagation(submodule);
+  }
+  for (auto& method : m.get_methods()) {
+    auto g = method.graph();
+    ConstantPropagation(g);
+  }
+}
+
 } // namespace jit
 } // namespace torch
