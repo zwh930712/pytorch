@@ -117,7 +117,6 @@ libtorch_sources = [
     "torch/csrc/jit/register_special_ops.cpp",
     "torch/csrc/jit/scope.cpp",
     "torch/csrc/jit/script/compiler.cpp",
-    "torch/csrc/api/src/jit.cpp",
     "torch/csrc/jit/script/edit_distance.cpp",
     "torch/csrc/jit/script/logging.cpp",
     "torch/csrc/jit/script/convert_to_ssa.cpp",
@@ -147,7 +146,6 @@ libtorch_sources = [
     "torch/csrc/jit/fuser/cpu/fused_kernel.cpp",
     "torch/csrc/jit/fuser/interface.cpp",
     "torch/csrc/jit/function.cpp",
-    "test/cpp/jit/test.cpp",
 ]
 
 libtorch_cuda_sources = [
@@ -279,6 +277,10 @@ def add_torch_libs():
         "torch/csrc/utils/tensor_numpy.cpp",
         "torch/csrc/utils/tensor_types.cpp",
         "torch/csrc/utils/tuple_parser.cpp",
+        # test.cpp included here to enable running cpp tests from python
+        # runner. Ideally we'd create a separate python extension for it, but
+        # it's too much hassle
+        "test/cpp/jit/test.cpp",
     ]
 
     libtorch_python_cuda_sources = [
