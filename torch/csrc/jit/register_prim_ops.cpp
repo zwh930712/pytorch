@@ -1,4 +1,5 @@
 #include <aten/src/ATen/Context.h>
+#include <torch/csrc/autograd/autograd.h>
 #include <torch/csrc/autograd/edge.h>
 #include <torch/csrc/autograd/function.h>
 #include <torch/csrc/autograd/generated/variable_factories.h>
@@ -9,7 +10,7 @@
 #include <torch/csrc/jit/graph_executor.h>
 #include <torch/csrc/jit/ir.h>
 #include <torch/csrc/jit/operator.h>
-#include <torch/csrc/jit/pickler.h>
+#include <torch/csrc/jit/pickle.h>
 #include <torch/csrc/jit/print_handler.h>
 #include <torch/csrc/jit/profiling_record.h>
 #include <torch/csrc/jit/script/compilation_unit.h>
@@ -86,7 +87,7 @@ void checkImplicitTensorToNum(at::Tensor t, bool toInt) {
     throw std::runtime_error(
         "Cannot input a tensor of dimension other than 0 as a scalar argument");
   }
-  if (toInt && !isIntegralType(t.scalar_type())) {
+  if (toInt && !isIntegralType(t.scalar_type(), /*includeBool=*/false)) {
     std::stringstream ss;
     ss << "Cannot input a tensor of type " << t.scalar_type()
        << " as an integral argument";
@@ -568,6 +569,19 @@ RegisterOperators reg(
          },
          aliasAnalysisFromSchema()),
      Operator(
+         "prim::grad(Tensor a) -> Tensor(*)",
+         [](Stack& stack) {
+           at::Tensor a;
+           pop(stack, a);
+           push(stack, a.grad());
+           return 0;
+         },
+         aliasAnalysisFromSchema()),
+     Operator(
+         "prim::data(Tensor(b) a) -> Tensor(b)",
+         noop,
+         aliasAnalysisFromSchema()),
+     Operator(
          "prim::is_cuda(Tensor a) -> bool",
          [](Stack& stack) {
            at::Tensor a;
@@ -577,11 +591,29 @@ RegisterOperators reg(
          },
          aliasAnalysisFromSchema()),
      Operator(
+         "prim::is_sparse(Tensor a) -> bool",
+         [](Stack& stack) {
+           at::Tensor a;
+           pop(stack, a);
+           push(stack, a.is_sparse());
+           return 0;
+         },
+         aliasAnalysisFromSchema()),
+     Operator(
          "prim::is_mkldnn(Tensor a) -> bool",
          [](Stack& stack) {
            at::Tensor a;
            pop(stack, a);
            push(stack, a.is_mkldnn());
+           return 0;
+         },
+         aliasAnalysisFromSchema()),
+     Operator(
+         "prim::is_quantized(Tensor a) -> bool",
+         [](Stack& stack) {
+           at::Tensor a;
+           pop(stack, a);
+           push(stack, a.is_quantized());
            return 0;
          },
          aliasAnalysisFromSchema()),
@@ -613,6 +645,39 @@ RegisterOperators reg(
          },
          aliasAnalysisFromSchema()),
      Operator(
+         "aten::grad(Tensor[] outputs, Tensor[] inputs, Tensor?[]? grad_outputs=None, bool? keep_graph=None, bool create_graph=False, bool allow_unused=False) -> Tensor[]",
+         [](Stack& stack) {
+           bool allow_unused = pop(stack).toBool();
+           bool create_graph = pop(stack).toBool();
+           auto keep_graph = pop(stack).toOptional<bool>();
+           auto grad_outputs = pop(stack);
+           auto inputs = pop(stack).toTensorList();
+           auto outputs = pop(stack).toTensorList();
+           std::vector<torch::autograd::Variable> input_vars(
+               inputs.begin(), inputs.end());
+           std::vector<torch::autograd::Variable> output_vars(outputs.begin(), outputs.end());
+           std::vector<torch::autograd::Variable> gradients;
+
+           if (!grad_outputs.isNone()) {
+             for (const IValue& v : grad_outputs.toGenericListRef()) {
+               gradients.emplace_back(v.isNone() ? at::Tensor() : v.toTensor());
+             }
+           }
+
+           auto res = torch::autograd::grad(
+               output_vars,
+               input_vars,
+               gradients,
+               keep_graph,
+               create_graph,
+               allow_unused);
+
+           std::vector<at::Tensor> res_tensors(res.begin(), res.end());
+           push(stack, c10::impl::toList<at::Tensor>(std::move(res_tensors)));
+           return 0;
+         },
+         aliasAnalysisFromSchema()),
+     Operator(
          "prim::AutogradZero() -> Tensor",
          [](const Node* node) {
            return [](Stack& stack) {
@@ -625,19 +690,14 @@ RegisterOperators reg(
          "aten::save(t item, str filename) -> ()",
          [](Stack& stack) {
            auto filename = pop(stack).toStringRef();
-           auto value = pop(stack);
+           auto ivalue = pop(stack);
 
            // Pickle the tensor
-           Pickler p;
-           p.torchSaveStart();
-           p.protocol();
-           p.pushIValue(value);
-           p.stop();
-           p.torchSaveStop();
+           auto data = pickle({ivalue});
 
            // Write file
            std::fstream output(filename, std::ios::out | std::ios::binary);
-           output.write(p.stack().data(), p.stack().size());
+           output.write(data.data(), data.size());
            return 0;
          },
          aliasAnalysisFromSchema()),
@@ -2788,6 +2848,7 @@ RegisterOperators reg2({
     CREATE_DICT_OPS("str"),
     CREATE_DICT_OPS("int"),
     CREATE_DICT_OPS("float"),
+    CREATE_DICT_OPS("Tensor"),
 #undef CREATE_DICT_OPS
 
     Operator(

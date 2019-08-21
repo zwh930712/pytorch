@@ -1,8 +1,0 @@
-local.properties
-*.iml
-.gradle
-.idea
-.externalNativeBuild
-build
-#MUSTFIX: ignore libtorch header only not to bloat the first pull request
-pytorch_android/src/main/cpp/include/**
