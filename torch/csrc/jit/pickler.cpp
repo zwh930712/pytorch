@@ -13,6 +13,8 @@ using ::c10::IValue;
 // See https://docs.python.org/3/library/pickle.html#data-stream-format
 constexpr static uint8_t PROTOCOL_VERSION = 2;
 
+char* torch_save_magic_number = "\x6c\xfc\x9c\x46\xf9\x20\x6a\xa8\x50\x19";
+
 PicklerClass getClass(const std::string& str) {
   if (str == "build_tensor_from_id") {
     return PicklerClass::TENSOR;
@@ -128,7 +130,7 @@ void Pickler::torchSaveStart() {
   // LONG1 size
   pushBytes("\x0a");
   // LONG1 data
-  pushBytes("\x6c\xfc\x9c\x46\xf9\x20\x6a\xa8\x50\x19");
+  pushBytes(torch_save_magic_number);
   stop();
 
   // Protocol Version (1001)
@@ -519,7 +521,12 @@ void Pickler::pushTuple(const IValue& ivalue) {
 }
 
 IValue Unpickler::parse_ivalue() {
+  stack_.clear();
   run();
+  if (stack_.size() != 1) {
+    std::cout << stack_.at(0).tagKind() << " " << stack_.at(0) << "\n";
+    std::cout << stack_.at(1).tagKind() << " " << stack_.at(1) << "\n";
+  }
   TORCH_CHECK(
       stack_.size() == 1,
       "Unpickler expected 1 element on the stack, but found ",
@@ -543,9 +550,77 @@ double Unpickler::readFloat() {
   return little_endian;
 }
 
+std::unordered_map<int, std::string> opcode_lookup{{int('('), "MARK"},
+{int('.'), "STOP"},
+{int('0'), "POP"},
+{int('1'), "POP_MARK"},
+{int('2'), "DUP"},
+{int('F'), "FLOAT"},
+{int('I'), "INT"},
+{int('J'), "BININT"},
+{int('K'), "BININT1"},
+{int('L'), "LONG"},
+{int('M'), "BININT2"},
+{int('N'), "NONE"},
+{int('P'), "PERSID"},
+{int('Q'), "BINPERSID"},
+{int('R'), "REDUCE"},
+{int('S'), "STRING"},
+{int('T'), "BINSTRING"},
+{int('U'), "SHORT_BINSTRING"},
+{int('V'), "UNICODE"},
+{int('X'), "BINUNICODE"},
+{int('a'), "APPEND"},
+{int('b'), "BUILD"},
+{int('c'), "GLOBAL"},
+{int('d'), "DICT"},
+{int('}'), "EMPTY_DICT"},
+{int('e'), "APPENDS"},
+{int('g'), "GET"},
+{int('h'), "BINGET"},
+{int('i'), "INST"},
+{int('j'), "LONG_BINGET"},
+{int('l'), "LIST"},
+{int(']'), "EMPTY_LIST"},
+{int('o'), "OBJ"},
+{int('p'), "PUT"},
+{int('q'), "BINPUT"},
+{int('r'), "LONG_BINPUT"},
+{int('s'), "SETITEM"},
+{int('t'), "TUPLE"},
+{int(')'), "EMPTY_TUPLE"},
+{int('u'), "SETITEMS"},
+{int('G'), "BINFLOAT"},
+{int('\x80'), "PROTO"},
+{int('\x81'), "NEWOBJ"},
+{int('\x82'), "EXT1"},
+{int('\x83'), "EXT2"},
+{int('\x84'), "EXT4"},
+{int('\x85'), "TUPLE1"},
+{int('\x86'), "TUPLE2"},
+{int('\x87'), "TUPLE3"},
+{int('\x88'), "NEWTRUE"},
+{int('\x89'), "NEWFALSE"},
+{int('\x8a'), "LONG1"},
+{int('\x8b'), "LONG4"},
+{int('B'), "BINBYTES"},
+{int('C'), "SHORT_BINBYTES"},
+{int('\x8c'), "SHORT_BINUNICODE"},
+{int('\x8d'), "BINUNICODE8"},
+{int('\x8e'), "BINBYTES8"},
+{int('\x8f'), "EMPTY_SET"},
+{int('\x90'), "ADDITEMS"},
+{int('\x91'), "FROZENSET"},
+{int('\x92'), "NEWOBJ_EX"},
+{int('\x93'), "STACK_GLOBAL"},
+{int('\x94'), "MEMOIZE"},
+{int('\x9'), "FRAME"}};
+
+
 void Unpickler::run() {
   // Expect a PROTO opcode and protocol number at the start of blob
   auto opcode = readOpCode();
+  std::cout << "Read PROTO opcode " << std::hex << int(static_cast<uint8_t>(opcode)) << ": " << opcode_lookup[int(static_cast<uint8_t>(opcode))] << "\n";
   TORCH_CHECK(
       opcode == OpCode::PROTO,
       "Expected PROTO opcode at the start"
@@ -558,6 +633,7 @@ void Unpickler::run() {
 
   while (true) {
     OpCode opcode = readInstruction();
+    std::cout << stack_.size() <<  " Read opcode " << std::hex << int(static_cast<uint8_t>(opcode)) << ": " << opcode_lookup[int(static_cast<uint8_t>(opcode))] << "\n";
     if (opcode == OpCode::STOP) {
       return;
     }
@@ -650,9 +726,25 @@ OpCode Unpickler::readInstruction() {
       int32_t value = read<int32_t>();
       stack_.emplace_back(int64_t(value));
     } break;
+    case OpCode::BININT2: {
+      int16_t value = read<int16_t>();
+      stack_.emplace_back(int64_t(value));
+    } break;
     case OpCode::LONG1: {
       // Only read LONG1s with 8 as the length
       uint8_t length = read<uint8_t>();
+
+      if (length == 0x0a) {
+        // This is the magic number made in torchSaveStart(), check that it matches
+        auto bytes = readBytes(length);
+        TORCH_CHECK(
+            bytes == torch_save_magic_number,
+            "Cannot read a LONG1 with "
+            "a length == 10 that is not the torch.save magic number");
+        stack_.emplace_back(int64_t(0));
+        break;
+      }
+
       TORCH_CHECK(length == 8, "Expected length to be 8, got ", int(length));
       stack_.emplace_back(int64_t(read<int64_t>()));
     } break;
@@ -857,6 +949,7 @@ OpCode Unpickler::readInstruction() {
       globals_.at(idx)();
     } break;
     case OpCode::BINPERSID: {
+      std::cout << "Doing PERSID\n";
       auto args = pop(stack_).toTuple()->elements();
       AT_ASSERT(
           args.at(0).toStringRef() == "storage",

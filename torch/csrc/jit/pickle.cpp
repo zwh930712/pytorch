@@ -49,6 +49,30 @@ IValue unpickle(
     std::function<bool(char*, size_t)> reader,
     ClassResolver class_resolver,
     const std::vector<at::Tensor>* tensor_table) {
+
+  if (tensor_table == nullptr) {
+    // If there is no tensor table, then this is like an archive produced by
+    // `torch.save()` in Python which is actually 5 separate pickle archives
+    // in 1 binary:
+    //   - Pickle: magic number
+    //   - Pickle: version number
+    //   - Pickle: system metadata
+    //   - Pickle: pickled data
+    //   - Pickle: serialized tensor keys
+    //
+    // None of these matter except the last 2
+    Unpickler unpickler(reader, class_resolver, tensor_table);
+    unpickler.parse_ivalue();
+    std::cout << "pickle 1\n";
+    unpickler.parse_ivalue();
+    std::cout << "pickle 2\n";
+    unpickler.parse_ivalue(); // error here
+    std::cout << "pickle 3\n";
+    unpickler.parse_ivalue();
+
+    std::cout << "pickle 4\n";
+    return unpickler.parse_ivalue();
+  }
   Unpickler unpickler(
       std::move(reader), std::move(class_resolver), tensor_table);
   return unpickler.parse_ivalue();

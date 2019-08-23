@@ -1,3 +1,5 @@
+#pragma once
+
 #include <torch/csrc/WindowsTorchApiMacro.h>
 #include <ATen/core/ivalue.h>
 #include <torch/csrc/jit/pickler.h>

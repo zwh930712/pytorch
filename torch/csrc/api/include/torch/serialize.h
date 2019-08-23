@@ -3,6 +3,8 @@
 #include <torch/serialize/archive.h>
 #include <torch/serialize/tensor.h>
 
+#include <torch/csrc/jit/pickle.h>
+
 #include <utility>
 
 namespace torch {
@@ -103,6 +105,24 @@ void load(Value& value, LoadFromArgs&&... args) {
   serialize::InputArchive archive;
   archive.load_from(std::forward<LoadFromArgs>(args)...);
   archive >> value;
+}
+
+
+template <typename T>
+T pickle_load(const std::string& filename) {
+  std::ifstream input(filename);
+
+  IValue ivalue = torch::jit::unpickle(
+      /*reader=*/[&](char* buffer, size_t len) {
+        if (!input.good()) {
+          return false;
+        }
+        input.read(buffer, len);
+        return input.good();
+      },
+      /*class_resolver=*/nullptr,
+      /*tensor_table=*/nullptr);
+  return ivalue.to<T>();
 }
 
 /// Deserializes the given `tensor_vec` of type `std::vector<torch::Tensor>`.
