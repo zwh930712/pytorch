@@ -14,7 +14,6 @@ DEFINE_DISPATCH(sub_stub);
 DEFINE_DISPATCH(mul_stub);
 DEFINE_DISPATCH(div_stub);
 DEFINE_DISPATCH(atan2_stub);
-DEFINE_DISPATCH(logical_xor_stub);
 
 Tensor& add_out(Tensor& result, const Tensor& self, const Tensor& other, Scalar alpha) {
   if (other.is_sparse()) {
@@ -214,7 +213,14 @@ Tensor rsub(const Tensor& self, Scalar other, Scalar alpha) {
   return native::rsub(self, wrapped_scalar_tensor(other), alpha);
 }
 
-Tensor& logical_xor_out(Tensor& result, const Tensor& self, const Tensor& other) {
+// ~~~~~~~~~~~~~ Binary logical operators BEGIN ~~~~~~~~~~~~~~~~~
+
+DEFINE_DISPATCH(logical_and_stub);
+DEFINE_DISPATCH(logical_or_stub);
+DEFINE_DISPATCH(logical_xor_stub);
+
+template <typename Stub>
+static inline Tensor& logical_binary_out_impl(Tensor& result, const Tensor& self, const Tensor& other, Stub& stub) {
   TensorIterator iter;
   iter.dont_compute_common_dtype();
   iter.set_check_mem_overlap(true);
@@ -222,19 +228,59 @@ Tensor& logical_xor_out(Tensor& result, const Tensor& self, const Tensor& other)
   iter.add_input(self);
   iter.add_input(other);
   iter.build();
-  logical_xor_stub(iter.device_type(), iter);
+  stub(iter.device_type(), iter);
   return result;
+}
+
+template <typename Stub>
+static inline Tensor logical_binary_impl(const Tensor& self, const Tensor& other, Stub& stub) {
+  Tensor result = at::empty({0}, self.options().dtype(kBool));
+  logical_binary_out_impl(result, self, other, stub);
+  return result;
+}
+
+template <typename Stub>
+static inline Tensor& logical_binary_impl_(Tensor& self, const Tensor& other, Stub& stub) {
+  return logical_binary_out_impl(self, self, other, stub);
+}
+
+Tensor& logical_and_out(Tensor& result, const Tensor& self, const Tensor& other) {
+  return logical_binary_out_impl(result, self, other, logical_and_stub);
+}
+
+Tensor logical_and(const Tensor& self, const Tensor& other) {
+  return logical_binary_impl(self, other, logical_and_stub);
+}
+
+Tensor& logical_and_(Tensor& self, const Tensor& other) {
+  return logical_binary_impl_(self, other, logical_and_stub);
+}
+
+Tensor& logical_or_out(Tensor& result, const Tensor& self, const Tensor& other) {
+  return logical_binary_out_impl(result, self, other, logical_or_stub);
+}
+
+Tensor logical_or(const Tensor& self, const Tensor& other) {
+  return logical_binary_impl(self, other, logical_or_stub);
+}
+
+Tensor& logical_or_(Tensor& self, const Tensor& other) {
+  return logical_binary_impl_(self, other, logical_or_stub);
+}
+
+Tensor& logical_xor_out(Tensor& result, const Tensor& self, const Tensor& other) {
+  return logical_binary_out_impl(result, self, other, logical_xor_stub);
 }
 
 Tensor logical_xor(const Tensor& self, const Tensor& other) {
-  Tensor result = at::empty({0}, self.options().dtype(kBool));
-  at::logical_xor_out(result, self, other);
-  return result;
+  return logical_binary_impl(self, other, logical_xor_stub);
 }
 
 Tensor& logical_xor_(Tensor& self, const Tensor& other) {
-  return at::logical_xor_out(self, self, other);
+  return logical_binary_impl_(self, other, logical_xor_stub);
 }
+
+// ~~~~~~~~~~~~~ Binary logical operators END ~~~~~~~~~~~~~~~~~
 
 }
 }  // namespace at

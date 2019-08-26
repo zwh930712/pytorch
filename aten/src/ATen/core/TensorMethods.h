@@ -474,6 +474,38 @@ inline Tensor & Tensor::logical_not_() const {
     return table->getOp<Tensor & (Tensor &)>(tensorTypeIdToBackend(type_id()), is_variable())(const_cast<Tensor&>(*this));
 #endif
 }
+inline Tensor Tensor::logical_and(const Tensor & other) const {
+#ifdef USE_STATIC_DISPATCH
+    return TypeDefault::logical_and(const_cast<Tensor&>(*this), other);
+#else
+    static auto table = globalATenDispatch().getOpTable("aten::logical_and(Tensor self, Tensor other) -> Tensor");
+    return table->getOp<Tensor (const Tensor &, const Tensor &)>(tensorTypeIdToBackend(type_id()), is_variable())(const_cast<Tensor&>(*this), other);
+#endif
+}
+inline Tensor & Tensor::logical_and_(const Tensor & other) const {
+#ifdef USE_STATIC_DISPATCH
+    return TypeDefault::logical_and_(const_cast<Tensor&>(*this), other);
+#else
+    static auto table = globalATenDispatch().getOpTable("aten::logical_and_(Tensor(a!) self, Tensor other) -> Tensor(a!)");
+    return table->getOp<Tensor & (Tensor &, const Tensor &)>(tensorTypeIdToBackend(type_id()), is_variable())(const_cast<Tensor&>(*this), other);
+#endif
+}
+inline Tensor Tensor::logical_or(const Tensor & other) const {
+#ifdef USE_STATIC_DISPATCH
+    return TypeDefault::logical_or(const_cast<Tensor&>(*this), other);
+#else
+    static auto table = globalATenDispatch().getOpTable("aten::logical_or(Tensor self, Tensor other) -> Tensor");
+    return table->getOp<Tensor (const Tensor &, const Tensor &)>(tensorTypeIdToBackend(type_id()), is_variable())(const_cast<Tensor&>(*this), other);
+#endif
+}
+inline Tensor & Tensor::logical_or_(const Tensor & other) const {
+#ifdef USE_STATIC_DISPATCH
+    return TypeDefault::logical_or_(const_cast<Tensor&>(*this), other);
+#else
+    static auto table = globalATenDispatch().getOpTable("aten::logical_or_(Tensor(a!) self, Tensor other) -> Tensor(a!)");
+    return table->getOp<Tensor & (Tensor &, const Tensor &)>(tensorTypeIdToBackend(type_id()), is_variable())(const_cast<Tensor&>(*this), other);
+#endif
+}
 inline Tensor Tensor::logical_xor(const Tensor & other) const {
 #ifdef USE_STATIC_DISPATCH
     return TypeDefault::logical_xor(const_cast<Tensor&>(*this), other);

@@ -318,6 +318,10 @@ view of a storage and defines numeric operations on it.
    .. automethod:: logsumexp
    .. automethod:: logical_not
    .. automethod:: logical_not_
+   .. automethod:: logical_and
+   .. automethod:: logical_and_
+   .. automethod:: logical_or
+   .. automethod:: logical_or_
    .. automethod:: logical_xor
    .. automethod:: logical_xor_
    .. automethod:: long

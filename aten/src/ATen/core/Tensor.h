@@ -413,6 +413,10 @@ class CAFFE2_API Tensor {
   Tensor & bitwise_not_() const;
   Tensor logical_not() const;
   Tensor & logical_not_() const;
+  Tensor logical_and(const Tensor & other) const;
+  Tensor & logical_and_(const Tensor & other) const;
+  Tensor logical_or(const Tensor & other) const;
+  Tensor & logical_or_(const Tensor & other) const;
   Tensor logical_xor(const Tensor & other) const;
   Tensor & logical_xor_(const Tensor & other) const;
   Tensor bmm(const Tensor & mat2) const;
