@@ -534,61 +534,13 @@ IValue Unpickler::parse_ivalue() {
 void Unpickler::read_pending_tensors(const IValue& ivalue) {
   // Go through the list of pending tensors in order and read the requested
   // number of bytes from the same archive using `reader_`
-  std::cout << "I HAVE " << uninitialized_tensors_.size() << " tensors\n";
 
-  // for (auto tensor : tensors_) {
-  if (ivalue.isTensor()) {
-    char* buf2 = reinterpret_cast<char*>(ivalue.toTensor().data_ptr());
-    size_t size = 80;
-    std::vector<char> data;
-    data.resize(size);
-    reader_(buf2, size);
-    at::ScalarType st = ivalue.toTensor().scalar_type();
-    // at::Storage storage(
-    //     ivalue.toTensor().getIntrusivePtr()->dtype(),
-    //     ivalue.toTensor().numel(),
-    //     at::DataPtr(data.data(), ivalue.toTensor().device()),
-    //     nullptr,
-    //     false);
-    // ivalue.toTensor().set_(std::move(storage));
+  for (auto ptr : uninitialized_storages_) {
+    char* dest = reinterpret_cast<char*>(ptr->data());
+    // TODO: Python automatically reads these 8 bytes somehow
+    reader_(dest, 8);
+    reader_(dest, 80);
   }
-
-  // for (auto tensor : uninitialized_tensors2) {
-  //   char* dest;
-  //   std::vector<char> data;
-  //   size_t size = uninitialized_tensors_.at(0).numel() * uninitialized_tensors_.at(0).element_size();
-  //   data.resize(size);
-  //   // char buf[8];
-  //   // reader_(buf, 8);
-  //   char* buf2 = uninitialized_tensors2.at(0)->unsafe_data<char>();
-  //   reader_(buf2, size);
-  //   size_t i = 0;
-  //   std::cout << "read data: " << std::dec << size << "\n";
-  //   for (auto c : data) {
-  //     if (i % 8 == 0) {
-  //       std::cout << "\n";
-  //     }
-  //     std::cout << std::hex << int(c) << " ";
-  //     i++;
-  //   }
-  //   at::Storage s;
-
-
-
-    // storage().set_data_ptr(at::DataPtr(data.data(), uninitialized_tensors_.at(0).device()));
-
-    // std::cout << "MADE TENSOR\n";
-    // std::cout << tensor.second;
-    // storage.second.set_data_ptr(at::DataPtr(dest, storage.));
-    // size_t num_bytes = pair.first;
-    // char* dest = reinterpret_cast<char*>(pair.second);
-    // auto storage = pair.second;
-    // char* dest = reinterpret_cast<char*>(writeable_tensor_data.data());
-    // writeable_tensor_data.tensor().storage()._set; // NB: we didn't set any allocator for the
-    //                             // tensor
-    //                         writeable_tensor_data.tensor().set_(storage);
-    // TORCH_CHECK(reader_(dest, size), "read is not good");
-  // }
 }
 
 double Unpickler::readFloat() {
@@ -1025,23 +977,27 @@ OpCode Unpickler::readInstruction() {
       }
       int64_t numel = args.at(4).toInt();
 
-      at::DataPtr storage_ptr;
+      at::Storage storage;
       if (read_record_ == nullptr) {
-        std::vector<char> x;
-        x.resize(80);
-        storage_ptr = at::DataPtr(x.data(), at::kCPU);
+        // The tensors are in the same binary archive, but we don't know where
+        // until all the pickle data has been read, so use an uninitialized
+        // storage and set it later
+        storage = at::Storage(
+            at::CPU(type).typeMeta(),
+            numel,
+            /*allocator=*/at::getCPUAllocator(),
+            /*resizable=*/false);
       } else {
-        storage_ptr = read_record_(key);
+        at::DataPtr storage_ptr = read_record_(key);
+        storage = at::Storage(
+            at::CPU(type).typeMeta(),
+            numel,
+            std::move(storage_ptr),
+            /*allocator=*/nullptr,
+            /*resizable=*/false); // NB: we didn't set any allocator for the
+                                  // tensor
       }
-      at::Storage storage(
-          at::CPU(type).typeMeta(),
-          numel,
-          std::move(storage_ptr),
-          /*allocator=*/nullptr,
-          /*resizable=*/false); // NB: we didn't set any allocator for the
-                                // tensor
       auto options = at::CPU(type).options();
-      std::cout << "creating tensor\n";
       at::Tensor tensor;
       if (options.backend() == c10::Backend::QuantizedCPU) {
         tensor = at::_empty_affine_quantized({}, options, 0, 0)
@@ -1057,15 +1013,9 @@ OpCode Unpickler::readInstruction() {
             "supported devices include CPU and CUDA, however got ",
             at::DeviceTypeName(device.type(), false));
       }
-      size_t size = tensor.element_size() * tensor.storage().size();
       if (read_record_ == nullptr) {
-        std::cout << "in pickler STORAGE IS AT " << int64_t(tensor.getIntrusivePtr().get()) << "\n";
-        uninitialized_tensors_.push_back(tensor);
-        std::cout << "in pickler STORAGE IS AT " << int64_t(tensor.getIntrusivePtr().get()) << "\n";
-        uninitialized_tensors2.push_back(tensor.getIntrusivePtr());
-        std::cout << "in pickler STORAGE IS AT " << int64_t(tensor.getIntrusivePtr().get()) << "\n";
-      } else {
-
+        // Save a pointer to the storage so we can fill it in later
+        uninitialized_storages_.push_back(&tensor.storage());
       }
       stack_.push_back(std::move(tensor));
     } break;

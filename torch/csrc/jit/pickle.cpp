@@ -63,21 +63,12 @@ IValue unpickle(
     // None of these matter except the last 2
     Unpickler unpickler(reader, class_resolver, tensor_table);
     unpickler.parse_ivalue();
-    std::cout << "pickle 1\n";
     unpickler.parse_ivalue();
-    std::cout << "pickle 2\n";
-    unpickler.parse_ivalue(); // error here
-    std::cout << "pickle 3\n";
+    unpickler.parse_ivalue();
     auto data = unpickler.parse_ivalue();
 
-    std::cout << "pickle 4\n";
     unpickler.parse_ivalue();
-
-    std::cout << "Reading pending tensors\n";
-
     unpickler.read_pending_tensors(data);
-
-    std::cout << "read the tensor\n";
 
     return data;
   }

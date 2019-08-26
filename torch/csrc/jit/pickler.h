@@ -293,12 +293,7 @@ class Unpickler {
 
   std::vector<IValue> stack_;
 
-  std::vector<at::Tensor> uninitialized_tensors_;
-  std::vector<c10::intrusive_ptr<at::TensorImpl, at::UndefinedTensorImpl>> uninitialized_tensors2;
-  std::unordered_map<std::string, at::Storage> storages_;
-  std::vector<at::Storage*> storages2;
-  std::unordered_map<std::string, at::Tensor> tensors_;
-  // std::vector<std::pair<size_t, at::DataPtr&>> uninitialized_tensors_;
+  std::vector<const at::Storage*> uninitialized_storages_;
 
   // globals are represented on the stack as IValue integer indices
   // into this list
