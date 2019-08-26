@@ -114,6 +114,9 @@ T pickle_load(const std::string& filename) {
 
   IValue ivalue = torch::jit::unpickle(
       /*reader=*/[&](char* buffer, size_t len) {
+        if (len > 1) {
+          std::cout << "Reading " << std::dec << len << " bytes at " << std::hex << int64_t(buffer) << "\n";
+        }
         if (!input.good()) {
           return false;
         }

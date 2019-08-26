@@ -68,10 +68,18 @@ IValue unpickle(
     std::cout << "pickle 2\n";
     unpickler.parse_ivalue(); // error here
     std::cout << "pickle 3\n";
-    unpickler.parse_ivalue();
+    auto data = unpickler.parse_ivalue();
 
     std::cout << "pickle 4\n";
-    return unpickler.parse_ivalue();
+    unpickler.parse_ivalue();
+
+    std::cout << "Reading pending tensors\n";
+
+    unpickler.read_pending_tensors(data);
+
+    std::cout << "read the tensor\n";
+
+    return data;
   }
   Unpickler unpickler(
       std::move(reader), std::move(class_resolver), tensor_table);

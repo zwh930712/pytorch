@@ -523,16 +523,72 @@ void Pickler::pushTuple(const IValue& ivalue) {
 IValue Unpickler::parse_ivalue() {
   stack_.clear();
   run();
-  if (stack_.size() != 1) {
-    std::cout << stack_.at(0).tagKind() << " " << stack_.at(0) << "\n";
-    std::cout << stack_.at(1).tagKind() << " " << stack_.at(1) << "\n";
-  }
   TORCH_CHECK(
       stack_.size() == 1,
       "Unpickler expected 1 element on the stack, but found ",
       stack_.size());
 
   return stack_[0];
+}
+
+void Unpickler::read_pending_tensors(const IValue& ivalue) {
+  // Go through the list of pending tensors in order and read the requested
+  // number of bytes from the same archive using `reader_`
+  std::cout << "I HAVE " << uninitialized_tensors_.size() << " tensors\n";
+
+  // for (auto tensor : tensors_) {
+  if (ivalue.isTensor()) {
+    char* buf2 = reinterpret_cast<char*>(ivalue.toTensor().data_ptr());
+    size_t size = 80;
+    std::vector<char> data;
+    data.resize(size);
+    reader_(buf2, size);
+    at::ScalarType st = ivalue.toTensor().scalar_type();
+    // at::Storage storage(
+    //     ivalue.toTensor().getIntrusivePtr()->dtype(),
+    //     ivalue.toTensor().numel(),
+    //     at::DataPtr(data.data(), ivalue.toTensor().device()),
+    //     nullptr,
+    //     false);
+    // ivalue.toTensor().set_(std::move(storage));
+  }
+
+  // for (auto tensor : uninitialized_tensors2) {
+  //   char* dest;
+  //   std::vector<char> data;
+  //   size_t size = uninitialized_tensors_.at(0).numel() * uninitialized_tensors_.at(0).element_size();
+  //   data.resize(size);
+  //   // char buf[8];
+  //   // reader_(buf, 8);
+  //   char* buf2 = uninitialized_tensors2.at(0)->unsafe_data<char>();
+  //   reader_(buf2, size);
+  //   size_t i = 0;
+  //   std::cout << "read data: " << std::dec << size << "\n";
+  //   for (auto c : data) {
+  //     if (i % 8 == 0) {
+  //       std::cout << "\n";
+  //     }
+  //     std::cout << std::hex << int(c) << " ";
+  //     i++;
+  //   }
+  //   at::Storage s;
+
+
+
+    // storage().set_data_ptr(at::DataPtr(data.data(), uninitialized_tensors_.at(0).device()));
+
+    // std::cout << "MADE TENSOR\n";
+    // std::cout << tensor.second;
+    // storage.second.set_data_ptr(at::DataPtr(dest, storage.));
+    // size_t num_bytes = pair.first;
+    // char* dest = reinterpret_cast<char*>(pair.second);
+    // auto storage = pair.second;
+    // char* dest = reinterpret_cast<char*>(writeable_tensor_data.data());
+    // writeable_tensor_data.tensor().storage()._set; // NB: we didn't set any allocator for the
+    //                             // tensor
+    //                         writeable_tensor_data.tensor().set_(storage);
+    // TORCH_CHECK(reader_(dest, size), "read is not good");
+  // }
 }
 
 double Unpickler::readFloat() {
@@ -620,7 +676,6 @@ std::unordered_map<int, std::string> opcode_lookup{{int('('), "MARK"},
 void Unpickler::run() {
   // Expect a PROTO opcode and protocol number at the start of blob
   auto opcode = readOpCode();
-  std::cout << "Read PROTO opcode " << std::hex << int(static_cast<uint8_t>(opcode)) << ": " << opcode_lookup[int(static_cast<uint8_t>(opcode))] << "\n";
   TORCH_CHECK(
       opcode == OpCode::PROTO,
       "Expected PROTO opcode at the start"
@@ -633,7 +688,6 @@ void Unpickler::run() {
 
   while (true) {
     OpCode opcode = readInstruction();
-    std::cout << stack_.size() <<  " Read opcode " << std::hex << int(static_cast<uint8_t>(opcode)) << ": " << opcode_lookup[int(static_cast<uint8_t>(opcode))] << "\n";
     if (opcode == OpCode::STOP) {
       return;
     }
@@ -729,6 +783,15 @@ OpCode Unpickler::readInstruction() {
     case OpCode::BININT2: {
       int16_t value = read<int16_t>();
       stack_.emplace_back(int64_t(value));
+    } break;
+    case OpCode::APPEND: {
+      auto ivalue = stack_.back();
+      stack_.pop_back();
+      stack_.back().toGenericList().push_back(ivalue);
+    } break;
+    case OpCode::TUPLE2: {
+        auto tuple = c10::ivalue::Tuple::create(pop(stack_, 2));
+        stack_.emplace_back(tuple);
     } break;
     case OpCode::LONG1: {
       // Only read LONG1s with 8 as the length
@@ -949,7 +1012,6 @@ OpCode Unpickler::readInstruction() {
       globals_.at(idx)();
     } break;
     case OpCode::BINPERSID: {
-      std::cout << "Doing PERSID\n";
       auto args = pop(stack_).toTuple()->elements();
       AT_ASSERT(
           args.at(0).toStringRef() == "storage",
@@ -961,8 +1023,16 @@ OpCode Unpickler::readInstruction() {
       if (device_) {
         device = *device_;
       }
-      at::DataPtr storage_ptr = read_record_(key);
       int64_t numel = args.at(4).toInt();
+
+      at::DataPtr storage_ptr;
+      if (read_record_ == nullptr) {
+        std::vector<char> x;
+        x.resize(80);
+        storage_ptr = at::DataPtr(x.data(), at::kCPU);
+      } else {
+        storage_ptr = read_record_(key);
+      }
       at::Storage storage(
           at::CPU(type).typeMeta(),
           numel,
@@ -971,10 +1041,11 @@ OpCode Unpickler::readInstruction() {
           /*resizable=*/false); // NB: we didn't set any allocator for the
                                 // tensor
       auto options = at::CPU(type).options();
+      std::cout << "creating tensor\n";
       at::Tensor tensor;
       if (options.backend() == c10::Backend::QuantizedCPU) {
         tensor = at::_empty_affine_quantized({}, options, 0, 0)
-                     .set_(storage, 0, {}, {});
+                      .set_(storage, 0, {}, {});
       } else {
         tensor = at::empty({0}, options).set_(storage);
       }
@@ -985,6 +1056,16 @@ OpCode Unpickler::readInstruction() {
         AT_ERROR(
             "supported devices include CPU and CUDA, however got ",
             at::DeviceTypeName(device.type(), false));
+      }
+      size_t size = tensor.element_size() * tensor.storage().size();
+      if (read_record_ == nullptr) {
+        std::cout << "in pickler STORAGE IS AT " << int64_t(tensor.getIntrusivePtr().get()) << "\n";
+        uninitialized_tensors_.push_back(tensor);
+        std::cout << "in pickler STORAGE IS AT " << int64_t(tensor.getIntrusivePtr().get()) << "\n";
+        uninitialized_tensors2.push_back(tensor.getIntrusivePtr());
+        std::cout << "in pickler STORAGE IS AT " << int64_t(tensor.getIntrusivePtr().get()) << "\n";
+      } else {
+
       }
       stack_.push_back(std::move(tensor));
     } break;
