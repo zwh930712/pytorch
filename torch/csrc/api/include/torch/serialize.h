@@ -119,7 +119,7 @@ void load(Value& value, LoadFromArgs&&... args) {
 /// \rst
 /// .. code-block:: cpp
 ///
-///     torch::IValue tuple = torch::load("tuple.pt");
+///     torch::IValue tuple = torch::load<torch::IValue>("tuple.pt");
 template <typename T>
 T load(const std::string& filename) {
   std::ifstream input(filename);
