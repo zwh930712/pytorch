@@ -113,9 +113,17 @@ void ConcreteSourceRangeUnpickler::unpickle() {
     return;
   }
 
-  auto ivalues = jit::unpickle(reinterpret_cast<const char*>(data.get()), size)
+  std::vector<at::Tensor> tensor_table;
+  auto ivalues = jit::unpickle(
+                     reinterpret_cast<const char*>(data.get()),
+                     size,
+                     /*class_resolver=*/nullptr,
+                     /*tensor_table=*/&tensor_table)
                      .toTuple()
                      ->elements();
+  // The tensor table should be 0, but it still needs to be passed to `unpickle`
+  // so that it doesn't add the torch.save() metadata
+  TORCH_INTERNAL_ASSERT(tensor_table.size() == 0);
 
   unpickled_records = std::make_shared<SourceRangeRecords>();
   for (auto& val : ivalues) {
