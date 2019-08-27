@@ -12,14 +12,15 @@ class Setup(object):
 
 
 class FileSetup(object):
+    path = None
+
     def shutdown(self):
         if os.path.exists(self.path):
             os.remove(self.path)
 
 
 class EvalModeForLoadedModule(FileSetup):
-    def __init__(self):
-        self.path = 'dropout_model.pt'
+    path = 'dropout_model.pt'
 
     def setup(self):
         class Model(torch.jit.ScriptModule):
@@ -32,8 +33,11 @@ class EvalModeForLoadedModule(FileSetup):
                 x = self.dropout(x)
                 return x
 
+        print("Making module")
         model = Model()
+        print("module")
         model = model.train()
+        print("Saving to ", self.path)
         model.save(self.path)
 
 
@@ -57,6 +61,7 @@ tests = [
 
 def setup():
     for test in tests:
+        print("setup", type(test))
         test.setup()
 
 
