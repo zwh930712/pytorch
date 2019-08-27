@@ -42,8 +42,7 @@ class EvalModeForLoadedModule(FileSetup):
 
 
 class SerializationInterop(FileSetup):
-    def __init__(self):
-        self.path = 'ivalue.pt'
+    path = 'ivalue.pt'
 
     def setup(self):
         ones = torch.ones(2, 2)
