@@ -540,7 +540,7 @@ void Unpickler::read_pending_tensors(
     auto storage_ptr = uninitialized_storages_[key];
 
     int64_t numel;
-    reader_(reinterpret_cast<char*>(&numel), 8);
+    reader_(reinterpret_cast<char*>(&numel), sizeof(numel));
 
     auto size =  storage_ptr->elementSize() * storage_ptr->size();
     TORCH_CHECK(
@@ -967,7 +967,7 @@ OpCode Unpickler::readInstruction() {
         // Save a pointer to the storage so we can fill it in later
         uninitialized_storages_[key] = &tensor.storage();
       }
-      stack_.push_back(std::move(tensor));
+      stack_.emplace_back(std::move(tensor));
     } break;
     default: {
       AT_ERROR(
