@@ -107,9 +107,21 @@ void load(Value& value, LoadFromArgs&&... args) {
   archive >> value;
 }
 
-
+/// Load a value saved in Python with `torch.save()`.
+///
+/// \rst
+/// ::
+///
+///     ones = torch.ones(2, 3)
+///     twos = torch.ones(2, 3) * 2
+///     torch.save((ones, twos), "tuple.pt")
+///
+/// \rst
+/// .. code-block:: cpp
+///
+///     torch::IValue tuple = torch::load("tuple.pt");
 template <typename T>
-T pickle_load(const std::string& filename) {
+T load(const std::string& filename) {
   std::ifstream input(filename);
 
   IValue ivalue = torch::jit::unpickle(
@@ -125,6 +137,7 @@ T pickle_load(const std::string& filename) {
   return ivalue.to<T>();
 }
 
+///
 /// Deserializes the given `tensor_vec` of type `std::vector<torch::Tensor>`.
 ///
 /// To perform the serialization, a `serialize::InputArchive` is constructed,
