@@ -67,8 +67,8 @@ IValue unpickle(
     unpickler.parse_ivalue();
     auto data = unpickler.parse_ivalue();
 
-    unpickler.parse_ivalue();
-    unpickler.read_pending_tensors(data);
+    auto key_map = unpickler.parse_ivalue();
+    unpickler.read_pending_tensors(key_map.to<std::vector<std::string>>());
 
     return data;
   }

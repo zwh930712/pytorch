@@ -108,9 +108,6 @@ struct WriteableTensorData {
   const char* data() const {
     return static_cast<const char*>(tensor_.storage().data());
   }
-  at::Tensor tensor() const {
-    return tensor_;
-  }
   size_t sizeInBytes() const {
     return size_;
   }
@@ -263,7 +260,7 @@ class Unpickler {
         device_(std::move(device)) {}
 
   IValue parse_ivalue();
-  void read_pending_tensors(const IValue& ivalue);
+  void read_pending_tensors(const std::vector<std::string>& key_order);
 
  private:
   // No arguments ensures that a template arugment must be specified
@@ -293,7 +290,7 @@ class Unpickler {
 
   std::vector<IValue> stack_;
 
-  std::vector<const at::Storage*> uninitialized_storages_;
+  std::unordered_map<std::string, const at::Storage*> uninitialized_storages_;
 
   // globals are represented on the stack as IValue integer indices
   // into this list

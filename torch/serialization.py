@@ -580,7 +580,7 @@ def _load(f, map_location, pickle_module, **pickle_load_args):
         before = f.tell()
         deserialized_objects[key]._set_from_file(f, offset, f_should_read_directly)
         after = f.tell()
-        print("read from ", before, " to ", after, "total:", after - before)
+        print("Read", after - before, "bytes starting at", hex(before), 'to', hex(after))
         if offset is not None:
             offset = f.tell()
 

@@ -531,15 +531,27 @@ IValue Unpickler::parse_ivalue() {
   return stack_[0];
 }
 
-void Unpickler::read_pending_tensors(const IValue& ivalue) {
+void Unpickler::read_pending_tensors(
+    const std::vector<std::string>& key_order) {
   // Go through the list of pending tensors in order and read the requested
-  // number of bytes from the same archive using `reader_`
+  // number of bytes from the same archive using `reader_`.
 
-  for (auto ptr : uninitialized_storages_) {
-    char* dest = reinterpret_cast<char*>(ptr->data());
-    // TODO: Python automatically reads these 8 bytes somehow
-    reader_(dest, 8);
-    reader_(dest, 80);
+  for (auto key : key_order) {
+    auto storage_ptr = uninitialized_storages_[key];
+
+    int64_t numel;
+    reader_(reinterpret_cast<char*>(&numel), 8);
+
+    auto size =  storage_ptr->elementSize() * storage_ptr->size();
+    TORCH_CHECK(
+        storage_ptr->numel() == numel,
+        "Expected ",
+        storage_ptr->numel(),
+        " elements but found ",
+        numel);
+
+    char* dest = reinterpret_cast<char*>(storage_ptr->data());
+    reader_(dest, size);
   }
 }
 
@@ -557,73 +569,6 @@ double Unpickler::readFloat() {
 
   return little_endian;
 }
-
-std::unordered_map<int, std::string> opcode_lookup{{int('('), "MARK"},
-{int('.'), "STOP"},
-{int('0'), "POP"},
-{int('1'), "POP_MARK"},
-{int('2'), "DUP"},
-{int('F'), "FLOAT"},
-{int('I'), "INT"},
-{int('J'), "BININT"},
-{int('K'), "BININT1"},
-{int('L'), "LONG"},
-{int('M'), "BININT2"},
-{int('N'), "NONE"},
-{int('P'), "PERSID"},
-{int('Q'), "BINPERSID"},
-{int('R'), "REDUCE"},
-{int('S'), "STRING"},
-{int('T'), "BINSTRING"},
-{int('U'), "SHORT_BINSTRING"},
-{int('V'), "UNICODE"},
-{int('X'), "BINUNICODE"},
-{int('a'), "APPEND"},
-{int('b'), "BUILD"},
-{int('c'), "GLOBAL"},
-{int('d'), "DICT"},
-{int('}'), "EMPTY_DICT"},
-{int('e'), "APPENDS"},
-{int('g'), "GET"},
-{int('h'), "BINGET"},
-{int('i'), "INST"},
-{int('j'), "LONG_BINGET"},
-{int('l'), "LIST"},
-{int(']'), "EMPTY_LIST"},
-{int('o'), "OBJ"},
-{int('p'), "PUT"},
-{int('q'), "BINPUT"},
-{int('r'), "LONG_BINPUT"},
-{int('s'), "SETITEM"},
-{int('t'), "TUPLE"},
-{int(')'), "EMPTY_TUPLE"},
-{int('u'), "SETITEMS"},
-{int('G'), "BINFLOAT"},
-{int('\x80'), "PROTO"},
-{int('\x81'), "NEWOBJ"},
-{int('\x82'), "EXT1"},
-{int('\x83'), "EXT2"},
-{int('\x84'), "EXT4"},
-{int('\x85'), "TUPLE1"},
-{int('\x86'), "TUPLE2"},
-{int('\x87'), "TUPLE3"},
-{int('\x88'), "NEWTRUE"},
-{int('\x89'), "NEWFALSE"},
-{int('\x8a'), "LONG1"},
-{int('\x8b'), "LONG4"},
-{int('B'), "BINBYTES"},
-{int('C'), "SHORT_BINBYTES"},
-{int('\x8c'), "SHORT_BINUNICODE"},
-{int('\x8d'), "BINUNICODE8"},
-{int('\x8e'), "BINBYTES8"},
-{int('\x8f'), "EMPTY_SET"},
-{int('\x90'), "ADDITEMS"},
-{int('\x91'), "FROZENSET"},
-{int('\x92'), "NEWOBJ_EX"},
-{int('\x93'), "STACK_GLOBAL"},
-{int('\x94'), "MEMOIZE"},
-{int('\x9'), "FRAME"}};
-
 
 void Unpickler::run() {
   // Expect a PROTO opcode and protocol number at the start of blob
@@ -756,12 +701,12 @@ OpCode Unpickler::readInstruction() {
             bytes == torch_save_magic_number,
             "Cannot read a LONG1 with "
             "a length == 10 that is not the torch.save magic number");
-        stack_.emplace_back(int64_t(0));
-        break;
+        // Value is never used, so it doesn't matter beyond being on the stack
+        stack_.emplace_back(int64_t(-1));
+      } else {
+        TORCH_CHECK(length == 8, "Expected length to be 8, got ", int(length));
+        stack_.emplace_back(int64_t(read<int64_t>()));
       }
-
-      TORCH_CHECK(length == 8, "Expected length to be 8, got ", int(length));
-      stack_.emplace_back(int64_t(read<int64_t>()));
     } break;
     case OpCode::BINUNICODE: {
       uint32_t length = read<uint32_t>();
@@ -977,11 +922,16 @@ OpCode Unpickler::readInstruction() {
       }
       int64_t numel = args.at(4).toInt();
 
+
+      // If no `read_record_` function is provided, then the tensor data is in
+      // the same binary blob as the pickled data. The pickled data must be
+      // completely read first in order to find the start of the tensor data,
+      // then `read_pending_tensors()` called by the user to read the tensor
+      // data.
+      bool read_tensors_later = read_record_ == nullptr;
+
       at::Storage storage;
-      if (read_record_ == nullptr) {
-        // The tensors are in the same binary archive, but we don't know where
-        // until all the pickle data has been read, so use an uninitialized
-        // storage and set it later
+      if (read_tensors_later) {
         storage = at::Storage(
             at::CPU(type).typeMeta(),
             numel,
@@ -1001,7 +951,7 @@ OpCode Unpickler::readInstruction() {
       at::Tensor tensor;
       if (options.backend() == c10::Backend::QuantizedCPU) {
         tensor = at::_empty_affine_quantized({}, options, 0, 0)
-                      .set_(storage, 0, {}, {});
+                     .set_(storage, 0, {}, {});
       } else {
         tensor = at::empty({0}, options).set_(storage);
       }
@@ -1013,9 +963,9 @@ OpCode Unpickler::readInstruction() {
             "supported devices include CPU and CUDA, however got ",
             at::DeviceTypeName(device.type(), false));
       }
-      if (read_record_ == nullptr) {
+      if (read_tensors_later) {
         // Save a pointer to the storage so we can fill it in later
-        uninitialized_storages_.push_back(&tensor.storage());
+        uninitialized_storages_[key] = &tensor.storage();
       }
       stack_.push_back(std::move(tensor));
     } break;
