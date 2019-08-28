@@ -1,4 +1,5 @@
 #pragma once
+#include <c10/core/EnableNamedTensor.h>
 #include <ATen/core/interned_strings.h>
 #include <c10/util/ArrayRef.h>
 #include <c10/util/Optional.h>
