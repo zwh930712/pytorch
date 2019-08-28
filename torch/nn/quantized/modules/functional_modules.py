@@ -1,6 +1,6 @@
 import torch
 from torch._ops import ops
-
+from torch.nn.quantized.modules._base_modules import _BaseQuantizedModule
 
 class FloatFunctional(torch.nn.Module):
     r"""State collector class for float operatitons.
@@ -71,7 +71,7 @@ class FloatFunctional(torch.nn.Module):
         return r
 
 
-class QFunctional(torch.nn.Module):
+class QFunctional(torch.nn.Module, _BaseQuantizedModule):
     r"""Wrapper class for quantized operatitons.
 
     The instance of this class can be used instead of the
@@ -94,6 +94,9 @@ class QFunctional(torch.nn.Module):
         - cat
         - mul
     """
+
+    _FLOAT_MODULE = FloatFunctional
+
     def __init__(self):
         super(QFunctional, self).__init__()
         self.scale = 1.0
@@ -145,13 +148,3 @@ class QFunctional(torch.nn.Module):
         # type: (List[Tensor], int) -> Tensor
         return ops.quantized.cat(x, scale=self.scale,
                                  zero_point=self.zero_point, dim=dim)
-
-    @classmethod
-    def from_float(cls, mod):
-        assert type(mod) == FloatFunctional,\
-            "QFunctional.from_float expects an instance of FloatFunctional"
-        scale, zero_point = mod.observer.calculate_qparams()
-        new_mod = QFunctional()
-        new_mod.scale = float(scale)
-        new_mod.zero_point = int(zero_point)
-        return new_mod

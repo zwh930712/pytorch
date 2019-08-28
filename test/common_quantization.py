@@ -11,6 +11,7 @@ import hypothesis
 import io
 import torch
 import torch.nn as nn
+import torch.nn._intrinsic as nni
 import torch.nn.quantized as nnq
 import torch.nn.quantized.dynamic as nnqd
 from common_utils import TestCase
@@ -439,31 +440,20 @@ class ModelForFusion(nn.Module):
         return x
 
 
-class DummyObserver(torch.nn.Module):
-    def calculate_qparams(self):
-        return 1.0, 0
-
-    def forward(self, x):
-        return x
-
-
-class ModForWrapping(torch.nn.Module):
+class ModelForWrapping(torch.nn.Module):
     def __init__(self, quantized=False):
-        super(ModForWrapping, self).__init__()
+        super(ModelForWrapping, self).__init__()
         self.qconfig = default_qconfig
-        if quantized:
-            self.mycat = nnq.QFunctional()
-            self.myadd = nnq.QFunctional()
-        else:
-            self.mycat = nnq.FloatFunctional()
-            self.myadd = nnq.FloatFunctional()
-            self.mycat.observer = DummyObserver()
-            self.myadd.observer = DummyObserver()
+        self.mycat = nnq.FloatFunctional()
+        self.myadd = nnq.FloatFunctional()
+        self.myaddrelu = nni.FloatFunctional()
 
     def forward(self, x):
         y = self.mycat.cat([x, x, x])
         z = self.myadd.add(y, y)
+        z = self.myaddrelu.add_relu(z, z)
         return z
+
 
     @classmethod
     def from_float(cls, mod):
