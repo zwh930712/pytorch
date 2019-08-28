@@ -3267,11 +3267,7 @@ def foo(x):
         def annotate_none():
             return torch.jit.annotate(Optional[torch.Tensor], None)
 
-        def annotate_none_no_optional():
-            return torch.jit.annotate(torch.Tensor, None)
-
         self.checkScript(annotate_none, ())
-        self.checkScript(annotate_none_no_optional, ())
 
     def test_robust_op_resolution(self):
         neg = torch.add  # misleading name to make sure we resolve by function
@@ -4169,8 +4165,6 @@ a")
                 print(typed_nones())
 
         graph_str = str(test.graph)
-        self.assertTrue(graph_str.count("bool? = prim::Constant") == 1)
-        self.assertTrue(graph_str.count("int? = prim::Constant") == 1)
         self.assertTrue(graph_str.count("None = prim::Constant") == 1)
 
     def test_literal(self):
@@ -11145,7 +11139,7 @@ a")
         def test_test():
             return torch.jit._unwrap_optional(1)
 
-        with self.assertRaisesRegex(RuntimeError, r"Cannot match an Optional\[T\] to None"):
+        with self.assertRaisesRegex(RuntimeError, r"could not be inferred from actual type None"):
             @torch.jit.script
             def test_no_type():
                 # type: () -> int
