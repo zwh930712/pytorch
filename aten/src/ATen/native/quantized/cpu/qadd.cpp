@@ -50,26 +50,68 @@ Tensor _add_out(Tensor& out, const Tensor& self, const Tensor& other) {
 }
 
 template <bool ReLUFused = false>
-Tensor _add_scalar_out(Tensor& out, const Tensor& self, Scalar other) {
-  int64_t zero_point = out.q_zero_point();
-  double scale = out.q_scale();
-  int64_t self_zero_point = self.q_zero_point();
-  double self_scale = self.q_scale();
-
-  auto iter = TensorIterator::unary_op(out, self);
-  AT_DISPATCH_QINT_TYPES(out.scalar_type(), "qadd", [&]() {
-    cpu_kernel(iter, [&](scalar_t a) -> scalar_t {
-      const auto da = at::dequantize_val(self_scale, self_zero_point, a);
-      double c = da + other.toFloat();
-      auto quant_val = at::quantize_val<scalar_t>(scale, zero_point, c);
-      auto dequant_val = at::dequantize_val(scale, zero_point, quant_val);
-      if (ReLUFused) {
-        c = std::max<float>(c, 0.0);
-      }
-      return at::quantize_val<scalar_t>(scale, zero_point, c);
-    });
+Tensor _add_scalar_(Tensor& self, Scalar other) {
+  TORCH_CHECK(self.qscheme() == kPerTensorAffine,
+              "Only per tensor affine is supported for now!!");
+  float other_val = other.toFloat();
+  if (std::abs(other_val) <= std::numeric_limits<float>::epsilon()) {
+    return self;
+  }
+  double s = self.q_scale();
+  int64_t z = self.q_zero_point();
+  int64_t qmin, qmax;
+  double xmin, xmax;
+  AT_DISPATCH_QINT_TYPES(self.scalar_type(), "qadd", [&]() {
+    qmin = std::numeric_limits<underlying_t>::min();
+    qmax = std::numeric_limits<underlying_t>::max();
+    xmin = at::dequantize_val(self.q_scale(), self.q_zero_point(),
+                              static_cast<scalar_t>(qmin));
+    xmax = at::dequantize_val(self.q_scale(), self.q_zero_point(),
+                              static_cast<scalar_t>(qmax));
   });
-  return out;
+
+  int64_t new_z = z;
+  double new_s = s;
+  bool fallback = false;
+
+  int64_t qother = std::nearbyint(other_val / s);
+
+  if (other_val > 0) {  // Addition
+    if (xmin + other_val < 0) {
+      new_z = new_z - qother;
+      fallback = true;
+    } else {
+      fallback = true;
+      // new_z = qmin;
+      // new_s = (xmax + other_val) / (qmax - qmin);
+    }
+  } else {  // Subtraction
+    if (xmax - other_val > 0) {
+      new_z = new_z - qother;
+      fallback = true;
+    } else {
+      fallback = true;
+      // new_z = qmax;
+      // new_s = -(xmin + other_val) / (qmax - qmin);
+    }
+  }
+  if (fallback) {
+    auto iter = TensorIterator::unary_op(self, self);
+    AT_DISPATCH_QINT_TYPES(self.scalar_type(), "qadd.Scalar", [&]() {
+      cpu_kernel(iter, [&](scalar_t a) -> scalar_t {
+        const auto da = at::dequantize_val(s, z, a);
+        float c = da + other_val;
+        return at::quantize_val<scalar_t>(s, z, c);
+      });
+    });
+  } else {
+    self.set_quantizer_(make_per_tensor_affine_quantizer(new_s, new_z,
+                                                         self.scalar_type()));
+  }
+  if (ReLUFused) {
+    return at::relu_(self);
+  }
+  return self;
 }
 
 
@@ -101,14 +143,11 @@ class QAddOut final : public c10::OperatorKernel {
 template <bool ReLUFused = false>
 class QAddScalar final : public c10::OperatorKernel {
  public:
-  Tensor operator()(Tensor qa, Scalar b,
-                    double scale, int64_t zero_point) {
-  TORCH_CHECK(qa.qscheme() == kPerTensorAffine ||
-              qa.qscheme() == kPerTensorSymmetric,
+  Tensor operator()(Tensor qa, Scalar b) {
+  TORCH_CHECK(qa.qscheme() == kPerTensorAffine,
               "Only per tensor quantization is suuported in Add.");
-    auto qc = at::_empty_affine_quantized(qa.sizes(),
-      at::device(kCPU).dtype(qa.scalar_type()), scale, zero_point);
-    return _add_scalar_out<ReLUFused>(qc, qa, b);
+    auto out = qa.clone();
+    return _add_scalar_<ReLUFused>(out, b);
   }
 };
 
@@ -117,7 +156,8 @@ class QAddScalarOut final : public c10::OperatorKernel {
  public:
   Tensor operator()(Tensor qa, Scalar b, Tensor out) {
     check_inputs(qa, out);
-    return _add_scalar_out<ReLUFused>(out, qa, b);
+    out = qa.clone();
+    return _add_scalar_<ReLUFused>(out, b);
   }
 };
 
@@ -138,12 +178,10 @@ static auto registry = c10::RegisterOperators()
      "-> Tensor out",
     c10::RegisterOperators::options()
       .kernel<QAddOut</*ReLUFused=*/true>>(QuantizedCPUTensorId()))
-.op("quantized::add_scalar(Tensor qa, Scalar b, float scale, int zero_point)"
-     "-> Tensor qc",
+.op("quantized::add_scalar(Tensor qa, Scalar b) -> Tensor qc",
     c10::RegisterOperators::options()
       .kernel<QAddScalar</*ReLUFused=*/false>>(QuantizedCPUTensorId()))
-.op("quantized::add_scalar_relu(Tensor qa, Scalar b, float scale,"
-     "int zero_point) -> Tensor qc",
+.op("quantized::add_scalar_relu(Tensor qa, Scalar b) -> Tensor qc",
     c10::RegisterOperators::options()
       .kernel<QAddScalar</*ReLUFused=*/true>>(QuantizedCPUTensorId()))
 .op("quantized::add_scalar_out(Tensor qa, Scalar b, Tensor out)"
