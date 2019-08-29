@@ -148,6 +148,7 @@ class TestQuantizedOps(TestCase):
            b=st.floats(-1e6, 1e6, allow_nan=False, allow_infinity=False))
     def test_qadd_scalar_relu(self, A, b):
         import copy
+
         add_scalar = torch.ops.quantized.add_scalar
         add_scalar_relu = torch.ops.quantized.add_scalar_relu
 
@@ -267,6 +268,37 @@ class TestQuantizedOps(TestCase):
         self.assertEqual(qCrelu_hat, qCrelu_out_hat,
                          message="AddReLU.out failed")
 
+    """Tests the correctness of the scalar addition."""
+    @given(A=hu.tensor(shapes=hu.array_shapes(1, 4, 1, 5),
+                       elements=st.floats(-1e3, 1e3, allow_nan=False),
+                       qparams=hu.qparams()),
+           # b < 0 is WIP.
+           b=st.floats(min_value=0, max_value=1e3, allow_nan=False))
+    def test_qmul_scalar_relu(self, A, b):
+        mul_scalar = torch.ops.quantized.mul_scalar
+        mul_scalar_relu = torch.ops.quantized.mul_scalar_relu
+
+        A, (scale, zero_point, dtype) = A
+        if dtype == torch.qint32:
+            return
+
+        A = A.astype(np.float32)
+        qA = torch.quantize_linear(torch.from_numpy(A), scale, zero_point, dtype)
+
+        C_ref = qA.dequantize() * b
+        C_hat = mul_scalar(qA, b)
+
+        C_relu_ref = qA.dequantize() * b
+        C_relu_ref = torch.relu(C_relu_ref)
+        C_relu_hat = mul_scalar_relu(qA, b)
+
+        self.assertEqual(C_ref, C_hat.dequantize(), prec=1,
+                         message="Scalar mul results don't match: {} vs {}"
+                         .format(C_ref, C_hat))
+        self.assertEqual(C_relu_ref, C_relu_hat.dequantize(), prec=1,
+                         message="Scalar mul relu results don't match:{} vs {}"
+                         .format(C_relu_ref, C_relu_hat))
+
     """Tests the correctness of the mul and mul_relu op."""
     def test_qmul_relu_same_qparams(self):
         mul_relu = torch.ops.quantized.mul_relu
@@ -274,10 +306,11 @@ class TestQuantizedOps(TestCase):
         mul_out = torch.ops.quantized.mul_out
         mul_relu_out = torch.ops.quantized.mul_relu_out
 
-        A = torch.arange(-25, 25, dtype=torch.float)
-        B = torch.arange(-25, 25, dtype=torch.float)
-        scale = 2.0
-        zero_point = 127
+        A = torch.arange(-255, 255, dtype=torch.float)
+        B = torch.arange(-255, 255, dtype=torch.float)
+
+        scale, zero_point = _calculate_dynamic_qparams(A * B, torch.uint8)
+
         qA = torch.quantize_linear(A, scale=scale, zero_point=zero_point,
                                    dtype=torch.quint8)
         qB = torch.quantize_linear(B, scale=scale, zero_point=zero_point,
@@ -311,16 +344,6 @@ class TestQuantizedOps(TestCase):
         self.assertEqual(qCrelu_hat, qCrelu_out_hat,
                          message="mulReLU.out failed")
 
-        # Scalar addition
-        mul = torch.ops.quantized.mul_scalar
-        for b in B:
-            C_ref = qA.dequantize().numpy() * b.item()
-            qC = _quantize(C_ref, scale, zero_point)
-            dqC = _dequantize(qC, scale, zero_point)
-            qC_hat = mul(qA, b.item(), scale, zero_point)
-            dqC_hat = qC_hat.dequantize()
-            self.assertEqual(dqC, dqC_hat)
-
     """Tests the correctness of the mul and mul_relu op."""
     def test_qmul_relu_different_qparams(self):
         mul_relu = torch.ops.quantized.mul_relu
@@ -328,15 +351,12 @@ class TestQuantizedOps(TestCase):
         mul_out = torch.ops.quantized.mul_out
         mul_relu_out = torch.ops.quantized.mul_relu_out
 
-        A = torch.arange(-25, 25, dtype=torch.float)
-        B = torch.arange(-25, 25, dtype=torch.float)
-        scale_A = 3.0
-        zero_point_A = 7
-        scale_B = 5.0
-        zero_point_B = 127
+        A = torch.arange(-127, 255, dtype=torch.float)
+        B = torch.arange(-255, 127, dtype=torch.float)
 
-        scale_C = 0.5
-        zero_point_C = 5
+        scale_A, zero_point_A = _calculate_dynamic_qparams(A, torch.uint8)
+        scale_B, zero_point_B = _calculate_dynamic_qparams(B, torch.uint8)
+        scale_C, zero_point_C = _calculate_dynamic_qparams(A * B, torch.uint8)
 
         qA = torch.quantize_linear(A, scale=scale_A, zero_point=zero_point_A,
                                    dtype=torch.quint8)
