@@ -173,8 +173,6 @@ class TestQuantizedTensor(TestCase):
         self.assertTrue(np.array_equal(qr1.dequantize().numpy(), qr2.dequantize().numpy()))
         # compare permuted + dequantized result with original transposed result
         self.assertTrue(np.allclose(qr2.dequantize().numpy(), r.numpy().T, atol=2 / scale))
-        # make permuted result contiguous
-        self.assertTrue(torch.equal(qr2.contiguous().int_repr(), qr2.int_repr()))
 
     def test_qtensor_load_save(self):
         scale = 2.0
@@ -222,24 +220,28 @@ class TestQuantizedTensor(TestCase):
         self.assertEqual(q, q2)
 
     def test_qtensor_view(self):
-        scale, zero_point, dtype = 1.0, 2, torch.quint8
-        q = torch._empty_affine_quantized(1, 2, 3, scale=scale, zero_point=zero_point, dtype=dtype)
+        scale, zero_point, dtype = 1.0, 2, torch.uint8
+        q_int = torch.randint(0, 100, [1, 2, 3], dtype=dtype)
+        q = torch._per_tensor_affine_qtensor(q_int, scale=scale, zero_point=zero_point)
         q2 = q.view(1, 3, 2)
         self.assertEqual(q.numel(), q2.numel())
         # testing -1
         self.assertEqual(q, q2.view(1, -1, 3))
 
-        a = torch._empty_affine_quantized([1, 2, 3, 4], scale=scale, zero_point=zero_point, dtype=dtype)
+        a_int = torch.randint(0, 100, [1, 2, 3, 4], dtype=dtype)
+        a = torch._per_tensor_affine_qtensor(a_int, scale=scale, zero_point=zero_point)
         b = a.transpose(1, 2)  # swaps 2nd and 3rd dimension
-        c = a.view(1, 3, 2, 4)  # does not change tensor layout
+        c = a.view(1, 3, 2, 4)  # does not change tensor layout in memory
         self.assertEqual(b.size(), c.size())
         self.assertEqual(b.q_scale(), c.q_scale())
         self.assertEqual(b.q_zero_point(), c.q_zero_point())
+        # size is the same but the underlying data is different
         self.assertNotEqual(b.int_repr(), c.int_repr())
 
 
         # a case can't view non-contiguos Tensor
-        a = torch._empty_affine_quantized([1, 2, 3, 4], scale=scale, zero_point=zero_point, dtype=dtype)
+        a_int = torch.randint(0, 100, [1, 2, 3, 4], dtype=dtype)
+        a = torch._per_tensor_affine_qtensor(a_int, scale=scale, zero_point=zero_point)
         b = a.transpose(1, 2)  # swaps 2nd and 3rd dimension
         err_str = "view size is not compatible with input tensor's size and stride*"
         with self.assertRaisesRegex(RuntimeError, err_str):
@@ -249,27 +251,29 @@ class TestQuantizedTensor(TestCase):
 
 
     def test_qtensor_reshape(self):
-        scale, zero_point, dtype = 1.0, 2, torch.quint8
-        q = torch._empty_affine_quantized([3, 5], scale=scale, zero_point=zero_point, dtype=dtype)
+        scale, zero_point, dtype = 1.0, 2, torch.uint8
+        q_int = torch.randint(0, 100, [3, 5], dtype=dtype)
+        q = torch._per_tensor_affine_qtensor(q_int, scale=scale, zero_point=zero_point)
         q2 = q.reshape([15])
         self.assertEqual(q.numel(), q2.numel())
         self.assertEqual(q2.size(), [15])
         # testing -1
         self.assertEqual(q, q2.reshape([3, -1]))
 
-        a = torch._empty_affine_quantized([1, 2, 3, 4], scale=scale, zero_point=zero_point, dtype=dtype)
+        a_int = torch.randint(0, 100, [1, 2, 3, 4], dtype=dtype)
+        a = torch._per_tensor_affine_qtensor(a_int, scale=scale, zero_point=zero_point)
         b = a.transpose(1, 2)  # swaps 2nd and 3rd dimension
-        c = a.reshape(1, 3, 2, 4)  # does not change tensor layout
+        c = a.reshape(1, 3, 2, 4)  # changes tensor layout in memory
         self.assertEqual(b.size(), c.size())
         self.assertEqual(b.q_scale(), c.q_scale())
         self.assertEqual(b.q_zero_point(), c.q_zero_point())
-        self.assertNotEqual(b.int_repr(), c.int_repr())
+        self.assertEqual(b.int_repr(), c.int_repr())
 
         # we can use reshape for non-contiguous Tensor
-        a = torch._empty_affine_quantized([1, 2, 3, 4], scale=scale, zero_point=zero_point, dtype=dtype)
+        a_int = torch.randint(0, 100, [1, 2, 3, 4], dtype=dtype)
+        a = torch._per_tensor_affine_qtensor(a_int, scale=scale, zero_point=zero_point)
         b = a.transpose(1, 2)  # swaps 2nd and 3rd dimension
         c = b.reshape(1, 4, 2, 3)
-        self.assertEqual(b, c.reshape(1, 3, 2, 4))
 
     def test_qscheme_pickle(self):
 
