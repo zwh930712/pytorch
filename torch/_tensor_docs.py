@@ -2163,6 +2163,18 @@ rsqrt_() -> Tensor
 In-place version of :meth:`~Tensor.rsqrt`
 """)
 
+add_docstr_all('rsub',
+               r"""
+See :func:`torch.rsub`
+""")
+
+add_docstr_all('rsub_',
+               r"""
+rsub_(x) -> Tensor
+
+In-place version of :meth:`~Tensor.rsub`
+""")
+
 add_docstr_all('scatter_',
                r"""
 scatter_(dim, index, src) -> Tensor

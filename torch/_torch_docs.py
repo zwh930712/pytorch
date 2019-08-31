@@ -4452,6 +4452,13 @@ WARNING: Can only be called once and before any inter-op parallel work
 is started (e.g. JIT execution).
 """)
 
+add_docstr(torch.rsub,
+           r"""
+.. function:: rsub(input, other, alpha=1)
+
+Equivalent to calling ``sub(other, input, alpha=alpha)``. See :meth:`torch.sub`.
+""")
+
 add_docstr(torch.sigmoid,
            r"""
 sigmoid(input, out=None) -> Tensor
