@@ -17,6 +17,7 @@ CONFIG_TREE_DATA = [
                 XImportant("3.6"),
                 ("3.6", [
                     ("namedtensor", [XImportant(True)]),
+                    ("backcompat", [XImportant(True)]),
                 ]),
             ]),
             ("7", [X("3.6")]),
@@ -132,6 +133,7 @@ class ExperimentalFeatureConfigNode(TreeConfigNode):
             "namedtensor": NamedTensorConfigNode,
             "important": ImportantConfigNode,
             "android_abi": AndroidAbiConfigNode,
+            "backcompat": BackCompatConfigNode,
         }
         return next_nodes[experimental_feature]
 
@@ -164,6 +166,17 @@ class AndroidAbiConfigNode(TreeConfigNode):
 
     def child_constructor(self):
         return ImportantConfigNode
+
+class BackCompatConfigNode(TreeConfigNode):
+    def modify_label(self, label):
+        return "BACKCOMPAT=" + str(label)
+
+    def init2(self, node_name):
+        self.props["is_backcompat"] = node_name
+
+    def child_constructor(self):
+        return ImportantConfigNode
+
 
 class ImportantConfigNode(TreeConfigNode):
     def modify_label(self, label):
