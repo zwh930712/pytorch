@@ -119,7 +119,7 @@ class Linear(torch.nn.Module):
         qweight = torch._empty_affine_quantized(
             [out_features, in_features], scale=1, zero_point=0, dtype=torch.qint8)
 
-        self.set_weight(qweight)
+        self.set_weight_bias(qweight, self.bias)
         self.weight_scale = 1.0
         self.scale = 1.0
         self.zero_point = 0
@@ -130,14 +130,8 @@ class Linear(torch.nn.Module):
         )
 
     def forward(self, x):
-        # Temporary work around for bias
-        # see Issue:https://github.com/pytorch/pytorch/issues/23874
-        bias = self.bias
-        if bias is not None:
-            bias = torch.quantize_linear(bias.dequantize(), float(self.weight_scale) * x.q_scale(), 0, torch.qint32)
-
         return torch.ops.quantized.linear(
-            x, self._packed_weight, bias, self.scale, self.zero_point)
+            x, self._packed_params, self.scale, self.zero_point)
 
     # ===== Serialization methods =====
     # The special consideration here is that we have to unpack the weights into their
@@ -146,18 +140,20 @@ class Linear(torch.nn.Module):
     # from the QTensor weight.
     def _save_to_state_dict(self, destination, prefix, keep_vars):
         super(Linear, self)._save_to_state_dict(destination, prefix, keep_vars)
-        destination[prefix + 'weight'] = self.weight()
+        (w, b) = self.weight_bias()
+        destination[prefix + 'weight'] = w
         destination[prefix + 'scale'] = torch.tensor(self.scale)
         destination[prefix + 'zero_point'] = torch.tensor(self.zero_point)
-        destination[prefix + 'bias'] = self.bias
+        destination[prefix + 'bias'] = b
 
     @torch.jit.export
     def __getstate__(self):
+        (w, b) = self.weight_bias()
         return (
             self.in_features,
             self.out_features,
-            self.bias,
-            self.weight(),
+            b,
+            w,
             self.scale,
             self.zero_point
         )
@@ -167,10 +163,8 @@ class Linear(torch.nn.Module):
     # weight into its packed format for use by the FBGEMM ops.
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
-        self.set_weight(state_dict[prefix + 'weight'])
+        self.set_weight_bias(state_dict[prefix + 'weight'], state_dict[prefix + 'bias'])
         state_dict.pop(prefix + 'weight')
-
-        self.bias = state_dict[prefix + 'bias']
         state_dict.pop(prefix + 'bias')
 
         self.scale = float(state_dict[prefix + 'scale'])
@@ -187,18 +181,19 @@ class Linear(torch.nn.Module):
         # type: (Tuple[int, int, Optional[torch.Tensor], torch.Tensor, float, int]) -> None
         self.in_features = state[0]
         self.out_features = state[1]
-        self.bias = state[2]
-        self.set_weight(state[3])
+        self.set_weight_bias(state[3], state[2])
         self.scale = state[4]
         self.zero_point = state[5]
 
     # Function rather than property to make sure that JIT serialization doesn't
     # register this as an attribute
-    def weight(self):
-        return torch.ops.quantized.linear_unpack(self._packed_weight)
+    def weight_bias(self):
+        return torch.ops.quantized.linear_unpack(self._packed_params)
 
-    def set_weight(self, w):
-        self._packed_weight = torch.ops.quantized.linear_prepack(w)
+    def set_weight_bias(self, w, b):
+        # type: (torch.Tensor, Optional[torch.Tensor]) -> None
+        self._packed_params = torch.ops.quantized.linear_prepack(w, b)
+        self.bias = b
         self.weight_scale = w.q_scale()
 
     @classmethod
@@ -239,7 +234,7 @@ class Linear(torch.nn.Module):
         else:
             qbias = None
         qlinear = cls(mod.in_features, mod.out_features)
-        qlinear.set_weight(qweight)
+        qlinear.set_weight_bias(qweight, qbias)
         qlinear.bias = qbias
         qlinear.scale = float(act_scale)
         qlinear.zero_point = int(act_zp)

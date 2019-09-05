@@ -815,13 +815,13 @@ class TestQuantizedLinear(unittest.TestCase):
         Y_zp = 5
 
         # Weight prepacking operator for quantized Linear
-        W_prepack = qlinear_prepack(W_q)
+        W_prepack = qlinear_prepack(W_q, b_q)
 
         if use_multi_dim_input:
             X_q = X_q.view(3, int(batch_size / 3), input_channels)
 
         # Quantized Linear operator with prepacked weight
-        Y_q = qlinear(X_q, W_prepack, b_q, Y_scale, Y_zp)
+        Y_q = qlinear(X_q, W_prepack, Y_scale, Y_zp)
 
         if not use_channelwise:
             # Test the per-tensor quantization only
@@ -879,7 +879,7 @@ class TestQuantizedLinear(unittest.TestCase):
         # Weight prepacking operator for quantized Linear
         W_prepack = qlinear_prepack(W_q)
         # Weight unpack operator for quantized Linear (Used for serialization)
-        W_q_origin = qlinear_unpack(W_prepack)
+        W_q_origin = qlinear_unpack(W_prepack)[0]
 
         # Assert equal
         np.testing.assert_equal(W_q.int_repr(), W_q_origin.int_repr().numpy())
