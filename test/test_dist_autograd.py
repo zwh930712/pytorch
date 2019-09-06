@@ -3,11 +3,12 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import sys
 import torch.distributed as dist
 import torch.distributed.autograd as dist_autograd
-from common_distributed import MultiProcessTestCase
+from multiprocessing_test_case import MultiProcessTestCase
 from functools import wraps
 import six
 import unittest
 import torch
+import caffe2.python._import_c_extension as C
 
 if not dist.is_available():
     print("c10d not available, skipping tests")
@@ -23,7 +24,7 @@ def dist_init(func):
     @wraps(func)
     def wrapper(self):
         self.worker_id = self.rank
-        store = dist.FileStore(self.file.name, self.world_size)
+        store = dist.FileStore(self.file_name, self.world_size)
         dist.init_process_group(backend='gloo', rank=self.rank,
                                 world_size=self.world_size, store=store)
         dist.init_model_parallel('worker%d' % self.rank)
@@ -34,6 +35,7 @@ def dist_init(func):
 
 @unittest.skipIf(not six.PY3, "Pytorch distributed autograd package "
                  "does not support python2")
+@unittest.skipIf(C.is_asan, "Skip ASAN as torch + multiprocessing spawn have known issues")
 class TestDistAutograd(MultiProcessTestCase):
 
     @property
