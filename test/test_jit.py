@@ -14619,7 +14619,7 @@ a")
 
             @torch.jit.export
             def __getstate__(self):
-                return torch.ops.quantized.linear_unpack(self._packed_weight)
+                return torch.ops.quantized.linear_unpack(self._packed_weight)[0]
 
             def forward(self):
                 return self._packed_weight
@@ -14631,7 +14631,7 @@ a")
 
             @property
             def weight(self):
-                return torch.ops.quantized.linear_unpack(self._packed_weight)
+                return torch.ops.quantized.linear_unpack(self._packed_weight)[0]
 
             @weight.setter
             def weight(self, w):
