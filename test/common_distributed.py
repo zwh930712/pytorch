@@ -1,38 +1,37 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import logging
 import multiprocessing
 import sys
 import tempfile
 import time
 import unittest
-import logging
-
 from collections import namedtuple
 from functools import wraps
 
 import torch
 import torch.distributed as c10d
+from common_utils import TestCase, NO_MULTIPROCESSING_SPAWN
 
-from common_utils import TestCase
 
-
-TestSkip = namedtuple('TestSkip', 'exit_code, message')
+TestSkip = namedtuple("TestSkip", "exit_code, message")
 
 
 TEST_SKIPS = {
     "multi-gpu": TestSkip(75, "Need at least 2 CUDA devices"),
     "nccl": TestSkip(76, "c10d not compiled with NCCL support"),
-    "known_issues": TestSkip(77, "Test skipped due to known issues")
+    "known_issues": TestSkip(77, "Test skipped due to known issues"),
 }
 
 
 def skip_if_not_multigpu(func):
     """Multi-GPU tests requires at least 2 GPUS. Skip if this is not met."""
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         if torch.cuda.is_available() and torch.cuda.device_count() >= 2:
             return func(*args, **kwargs)
-        sys.exit(TEST_SKIPS['multi-gpu'].exit_code)
+        sys.exit(TEST_SKIPS["multi-gpu"].exit_code)
 
     return wrapper
 
@@ -43,7 +42,8 @@ def skip_if_lt_x_gpu(x):
         def wrapper(*args, **kwargs):
             if torch.cuda.is_available() and torch.cuda.device_count() >= x:
                 return func(*args, **kwargs)
-            sys.exit(TEST_SKIPS['multi-gpu'].exit_code)
+            sys.exit(TEST_SKIPS["multi-gpu"].exit_code)
+
         return wrapper
 
     return decorator
@@ -51,40 +51,38 @@ def skip_if_lt_x_gpu(x):
 
 def skip_for_known_issues(func):
     """Skips a test due to known issues (for c10d)."""
+
     @wraps(func)
     def wrapper(*args, **kwargs):
-        sys.exit(TEST_SKIPS['known_issues'].exit_code)
+        sys.exit(TEST_SKIPS["known_issues"].exit_code)
 
     return wrapper
 
 
 def requires_gloo():
     return unittest.skipUnless(
-        c10d.is_gloo_available(),
-        "c10d was not compiled with the Gloo backend",
+        c10d.is_gloo_available(), "c10d was not compiled with the Gloo backend"
     )
 
 
 def requires_nccl():
     return unittest.skipUnless(
-        c10d.is_nccl_available(),
-        "c10d was not compiled with the NCCL backend",
+        c10d.is_nccl_available(), "c10d was not compiled with the NCCL backend"
     )
 
 
 def requires_mpi():
     return unittest.skipUnless(
-        c10d.is_mpi_available(),
-        "c10d was not compiled with the MPI backend",
+        c10d.is_mpi_available(), "c10d was not compiled with the MPI backend"
     )
 
 
-TIMEOUT_DEFAULT = 30
+TIMEOUT_DEFAULT = 100
 TIMEOUT_OVERRIDE = {}
 
 
 def get_timeout(test_id):
-    return TIMEOUT_OVERRIDE.get(test_id.split('.')[-1], TIMEOUT_DEFAULT)
+    return TIMEOUT_OVERRIDE.get(test_id.split(".")[-1], TIMEOUT_DEFAULT)
 
 
 class MultiProcessTestCase(TestCase):
@@ -109,9 +107,13 @@ class MultiProcessTestCase(TestCase):
                 try:
                     fn(self)
                 except Exception as e:
-                    logging.error('Caught exception: {}, exiting process with exit code: {}'
-                                  .format(e, MultiProcessTestCase.TEST_ERROR_EXIT_CODE))
+                    logging.error(
+                        "Caught exception: {}, exiting process with exit code: {}".format(
+                            e, MultiProcessTestCase.TEST_ERROR_EXIT_CODE
+                        )
+                    )
                     sys.exit(MultiProcessTestCase.TEST_ERROR_EXIT_CODE)
+
         return wrapper
 
     # The main process spawns N subprocesses that run the test.
@@ -121,7 +123,7 @@ class MultiProcessTestCase(TestCase):
     @classmethod
     def setUpClass(cls):
         for attr in dir(cls):
-            if attr.startswith('test'):
+            if attr.startswith("test"):
                 fn = getattr(cls, attr)
                 setattr(cls, attr, cls.join_or_run(fn))
 
@@ -129,31 +131,58 @@ class MultiProcessTestCase(TestCase):
         super(MultiProcessTestCase, self).setUp()
         self.skip_return_code_checks = []
         self.rank = self.MAIN_PROCESS_RANK
-        self.file = tempfile.NamedTemporaryFile(delete=False)
-        self.processes = [self._spawn_process(rank) for rank in range(int(self.world_size))]
+        self.file_name = tempfile.NamedTemporaryFile(delete=False).name
+        self._spawn_process()
 
     def tearDown(self):
         super(MultiProcessTestCase, self).tearDown()
         for p in self.processes:
             p.terminate()
 
-    def _spawn_process(self, rank):
-        name = 'process ' + str(rank)
-        process = multiprocessing.Process(target=self._run, name=name, args=(rank,))
-        process.start()
-        return process
+    def _current_test_name(self):
+        # self.id() == e.g. '__main__.TestDistributed.TestAdditive.test_get_rank'
+        return self.id().split(".")[-1]
 
-    def _run(self, rank):
+    def _spawn_process(self):
+        test_name = self._current_test_name()
+        # torch.multiprocessing.spawn does not support python2
+        if sys.version_info >= (3, 0):
+            self.spawncontext = torch.multiprocessing.spawn(
+                self.__class__._run,
+                (test_name, self.file_name),
+                nprocs=int(self.world_size),
+                join=False,
+            )
+            self.processes = self.spawncontext.processes
+        else:
+            self.processes = []
+            for rank in range(int(self.world_size)):
+                name = 'process ' + str(rank)
+                process = multiprocessing.Process(
+                    target=self.__class__._run,
+                    name=name,
+                    args=(rank, test_name, self.file_name))
+                process.start()
+            self.processes.append(process)
+
+    @classmethod
+    def _run(cls, rank, test_name, file_name):
+        self = cls(test_name)
         self.rank = rank
+        self.file_name = file_name
 
         # self.id() == e.g. '__main__.TestDistributed.test_get_rank'
         # We're retreiving a corresponding test and executing it.
-        getattr(self, self.id().split(".")[2])()
-        sys.exit(0)
+        getattr(self, test_name)()
+        # python2 uses fork, exit to avoid run teardown()
+        if sys.version_info < (3, 0):
+            sys.exit(0)
 
     def _join_processes(self, fn):
         timeout = get_timeout(self.id())
         start_time = time.time()
+        # not use spawn_context.join() as it failed to join because
+        # multiprocessing.connection.wait() failed for some processes
         for p in self.processes:
             p.join(timeout)
         elapsed_time = time.time() - start_time
@@ -168,7 +197,9 @@ class MultiProcessTestCase(TestCase):
         """
         for i, p in enumerate(self.processes):
             if p.exitcode is None:
-                raise RuntimeError('Process {} timed out after {} seconds'.format(i, elapsed_time))
+                raise RuntimeError(
+                    "Process {} timed out after {} seconds".format(i, elapsed_time)
+                )
             self.assertNotEqual(self.TEST_ERROR_EXIT_CODE, p.exitcode)
 
     def _check_return_codes(self, elapsed_time):
@@ -179,7 +210,11 @@ class MultiProcessTestCase(TestCase):
         first_process = self.processes[0]
         for i, p in enumerate(self.processes):
             if p.exitcode is None:
-                raise RuntimeError('Process {} terminated or timed out after {} seconds'.format(i, elapsed_time))
+                raise RuntimeError(
+                    "Process {} terminated or timed out after {} seconds".format(
+                        i, elapsed_time
+                    )
+                )
             self.assertEqual(p.exitcode, first_process.exitcode)
         for skip in TEST_SKIPS.values():
             if first_process.exitcode == skip.exit_code:

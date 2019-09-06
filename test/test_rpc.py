@@ -7,7 +7,7 @@ import unittest
 import torch
 import torch.distributed as dist
 
-from multiprocessing_test_case import MultiProcessTestCase
+from common_distributed import MultiProcessTestCase
 from common_utils import load_tests, run_tests
 import caffe2.python._import_c_extension as C
 
