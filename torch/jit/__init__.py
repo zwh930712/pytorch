@@ -1741,6 +1741,26 @@ def _unwrap_optional(x):
     assert x is not None, "Unwrapping null optional"
     return x
 
+# primitive that returns True when in compilation and False otherwise
+def is_scripting():
+    r"""
+    Function that returns True when in compilation and False otherwise. This
+    is useful especially with the @unused decorator to leave code in your
+    model that is not yet TorchScript compatible.
+
+    @torch.jit.unused
+    def unsupported_linear_op(x):
+        return x
+
+    def linear(x):
+       if not torch.jit.is_scripting():
+          return torch.linear(x)
+       else:
+          return unsupported_linear_op(x)
+    """
+
+    return False
+
 _builtin_table = None
 
 _modules_containing_builtins = (torch, torch._C._nn)
@@ -1754,6 +1774,7 @@ _builtin_ops = [
     (_triple, "aten::_triple"),
     (_unwrap_optional, "aten::_unwrap_optional"),
     (_wait, 'aten::wait'),
+    (is_scripting, "aten::is_scripting"),
     (cudnn.is_acceptable, "aten::cudnn_is_acceptable"),
     (math.ceil, "aten::ceil"),
     (math.copysign, "aten::copysign"),
