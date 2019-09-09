@@ -140,6 +140,12 @@ def _rebuild_tensor_v2(storage, storage_offset, size, stride, requires_grad, bac
     tensor._backward_hooks = backward_hooks
     return tensor
 
+def _rebuild_opaque_tensor(storage, storage_offset, size, stride, requires_grad, backward_hooks, device):
+    tensor = _rebuild_tensor(storage, storage_offset, size, stride).to(device)
+    tensor.requires_grad = requires_grad
+    tensor._backward_hooks = backward_hooks
+    return tensor
+
 def _rebuild_qtensor(storage, storage_offset, size, stride, scale, zero_point, requires_grad, backward_hooks):
     tensor = torch._empty_affine_quantized(size, scale=scale, zero_point=zero_point, dtype=storage.dtype)
     tensor.set_(storage, storage_offset, size, stride)

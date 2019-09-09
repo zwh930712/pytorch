@@ -312,6 +312,9 @@ def _save(obj, f, pickle_module, pickle_protocol):
                     location,
                     obj.size(),
                     view_metadata)
+        # See Note [Serialize opaque tensors]
+        elif isinstance(obj, torch.device) and obj.type == 'xla':
+            return ('OpaqueDevice', 'cpu')
         return None
 
     sys_info = dict(
@@ -578,6 +581,10 @@ def _load(f, map_location, pickle_module, **pickle_load_args):
                 return deserialized_objects[view_key]
             else:
                 return storage
+        # See Note [Serialize opaque tensors]
+        elif typename == 'OpaqueDevice':
+            device_name = data[0]
+            return torch.device(device_name)
         else:
             raise RuntimeError("Unknown saved id type: %s" % saved_id[0])
 

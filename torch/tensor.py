@@ -18,6 +18,25 @@ from numbers import Number
 # NB: If you add a new method to Tensor, you must update
 # torch/__init__.py.in to add a type annotation for your method;
 # otherwise, it will not show up in autocomplete.
+#
+# Note [Serialize opaque tensors]
+#     For devices don't have storages like XLA, we should first serialize CPU storage and
+#     move it to XLA after tensor is contructed from storage.
+#     This allows copy.copy(xla_tensor) returns a XLA tensor.
+#
+#     However, it's not sufficient to make torch.save/torch.load work.
+#     PyTorch torch.load() logic:
+#     - first construct Tenosr on top of an randomly initialized storage
+#     - load the serialized content to existing storage inplace.
+#     This approach works fine for CPU and CUDA which has associated storage,
+#     but for opaque devices like XLA, it won't pickup the storage update as
+#     tensor is disconnected with CPU storage once it's instantiated.
+#     One option is to ask users manually call xla_tensor.cpu() before calling
+#     into torch.save(), but this introduces an intrusive hard error.
+#     For opaque tensors, it makes more sense to implicitly transfer them to CPU
+#     before saving at framework level. To achieve this, we force torch.device('xla')
+#     change to torch.device('cpu') in torch.save().
+
 class Tensor(torch._C._TensorBase):
     def __deepcopy__(self, memo):
         if not self.is_leaf:
@@ -40,6 +59,17 @@ class Tensor(torch._C._TensorBase):
         _check_serializing_named_tensor(self)
         # See Note [Don't serialize hooks]
         torch.utils.hooks.warn_if_has_hooks(self)
+        # See Note [Serialize opaque tensors]
+        if self.device.type == 'xla':
+            self_cpu = self.cpu()
+            args = (self_cpu.storage(),
+                    self_cpu.storage_offset(),
+                    tuple(self.size()),
+                    self_cpu.stride(),
+                    self.requires_grad,
+                    OrderedDict(),
+                    self.device)
+            return (torch._utils._rebuild_opaque_tensor, args)
         if self.is_quantized:
             args = (self.storage(),
                     self.storage_offset(),
