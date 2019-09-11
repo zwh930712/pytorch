@@ -35,6 +35,11 @@ default_set = set([
     'manywheel 2.7mu cpu devtoolset7',
     'libtorch 2.7m cpu devtoolset7',
     'libtorch 2.7m cpu gcc5.4_cxx11-abi',
+    # iOS binary jobs
+    'libtorch-ios-10.2.1-nightly-x86_64-build',
+    'libtorch-ios-10.2.1-nightly-arm64-build',
+    'libtorch-ios-10.2.1-nightly-armv7s-build',
+    'pytorch-ios-bianry-upload',
 
     # Caffe2 Android
     'caffe2-py2-android-ubuntu16.04',
@@ -46,6 +51,10 @@ default_set = set([
     'pytorch-linux-xenial-py3-clang5-android-ndk-r19c-x86_32-build',
     # PyTorch Android gradle
     'pytorch-linux-xenial-py3-clang5-android-ndk-r19c-gradle-build-only-x86_32',
+    # PyTorch iOS build
+    # 'pytorch-ios-10.2.1-x86_64-build',
+    # 'pytorch-ios-10.2.1-arm64-build',
+    # 'pytorch-ios-10.2.1-armv7s-build',
 
     # XLA
     'pytorch-xla-linux-xenial-py3.6-clang7',

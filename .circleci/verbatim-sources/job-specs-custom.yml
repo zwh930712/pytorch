@@ -1,149 +1,474 @@
-  pytorch_short_perf_test_gpu:
-    environment:
-      BUILD_ENVIRONMENT: pytorch-short-perf-test-gpu
-      DOCKER_IMAGE: "308535385114.dkr.ecr.us-east-1.amazonaws.com/pytorch/pytorch-linux-xenial-cuda9-cudnn7-py3:339"
-      PYTHON_VERSION: "3.6"
-      USE_CUDA_DOCKER_RUNTIME: "1"
-    resource_class: gpu.medium
-    machine:
-      image: ubuntu-1604:201903-01
-    steps:
-    # See Note [Workspace for CircleCI scripts] in job-specs-setup.yml
-    - attach_workspace:
-        at: ~/workspace
-    - run:
-        <<: *should_run_job
-    - run:
-        <<: *setup_linux_system_environment
-    - run:
-        <<: *setup_ci_environment
-    - run:
-        name: Perf Test
-        no_output_timeout: "1h"
-        command: |
-          set -e
-          export COMMIT_DOCKER_IMAGE=${DOCKER_IMAGE}-${CIRCLE_SHA1}
-          echo "DOCKER_IMAGE: "${COMMIT_DOCKER_IMAGE}
-          docker pull ${COMMIT_DOCKER_IMAGE} >/dev/null
-          export id=$(docker run --runtime=nvidia -t -d -w /var/lib/jenkins ${COMMIT_DOCKER_IMAGE})
+  # pytorch_short_perf_test_gpu:
+  #   environment:
+  #     BUILD_ENVIRONMENT: pytorch-short-perf-test-gpu
+  #     DOCKER_IMAGE: "308535385114.dkr.ecr.us-east-1.amazonaws.com/pytorch/pytorch-linux-xenial-cuda9-cudnn7-py3:339"
+  #     PYTHON_VERSION: "3.6"
+  #     USE_CUDA_DOCKER_RUNTIME: "1"
+  #   resource_class: gpu.medium
+  #   machine:
+  #     image: ubuntu-1604:201903-01
+  #   steps:
+  #   # See Note [Workspace for CircleCI scripts] in job-specs-setup.yml
+  #   - attach_workspace:
+  #       at: ~/workspace
+  #   - run:
+  #       <<: *should_run_job
+  #   - run:
+  #       <<: *setup_linux_system_environment
+  #   - run:
+  #       <<: *setup_ci_environment
+  #   - run:
+  #       name: Perf Test
+  #       no_output_timeout: "1h"
+  #       command: |
+  #         set -e
+  #         export COMMIT_DOCKER_IMAGE=${DOCKER_IMAGE}-${CIRCLE_SHA1}
+  #         echo "DOCKER_IMAGE: "${COMMIT_DOCKER_IMAGE}
+  #         docker pull ${COMMIT_DOCKER_IMAGE} >/dev/null
+  #         export id=$(docker run --runtime=nvidia -t -d -w /var/lib/jenkins ${COMMIT_DOCKER_IMAGE})
 
-          docker cp $id:/var/lib/jenkins/workspace/env /home/circleci/project/env
-          # This IAM user allows write access to S3 bucket for perf test numbers
-          set +x
-          echo "declare -x AWS_ACCESS_KEY_ID=${CIRCLECI_AWS_ACCESS_KEY_FOR_PERF_TEST_S3_BUCKET_V4}" >> /home/circleci/project/env
-          echo "declare -x AWS_SECRET_ACCESS_KEY=${CIRCLECI_AWS_SECRET_KEY_FOR_PERF_TEST_S3_BUCKET_V4}" >> /home/circleci/project/env
-          set -x
-          docker cp /home/circleci/project/env $id:/var/lib/jenkins/workspace/env
+  #         docker cp $id:/var/lib/jenkins/workspace/env /home/circleci/project/env
+  #         # This IAM user allows write access to S3 bucket for perf test numbers
+  #         set +x
+  #         echo "declare -x AWS_ACCESS_KEY_ID=${CIRCLECI_AWS_ACCESS_KEY_FOR_PERF_TEST_S3_BUCKET_V4}" >> /home/circleci/project/env
+  #         echo "declare -x AWS_SECRET_ACCESS_KEY=${CIRCLECI_AWS_SECRET_KEY_FOR_PERF_TEST_S3_BUCKET_V4}" >> /home/circleci/project/env
+  #         set -x
+  #         docker cp /home/circleci/project/env $id:/var/lib/jenkins/workspace/env
 
-          export COMMAND='((echo "export BUILD_ENVIRONMENT=${BUILD_ENVIRONMENT}" && echo "source ./workspace/env" && echo "sudo chown -R jenkins workspace && cd workspace && .jenkins/pytorch/short-perf-test-gpu.sh") | docker exec -u jenkins -i "$id" bash) 2>&1'
-          echo ${COMMAND} > ./command.sh && unbuffer bash ./command.sh | ts
+  #         export COMMAND='((echo "export BUILD_ENVIRONMENT=${BUILD_ENVIRONMENT}" && echo "source ./workspace/env" && echo "sudo chown -R jenkins workspace && cd workspace && .jenkins/pytorch/short-perf-test-gpu.sh") | docker exec -u jenkins -i "$id" bash) 2>&1'
+  #         echo ${COMMAND} > ./command.sh && unbuffer bash ./command.sh | ts
 
-  pytorch_python_doc_push:
-    environment:
-      BUILD_ENVIRONMENT: pytorch-python-doc-push
-      # TODO: stop hardcoding this
-      DOCKER_IMAGE: "308535385114.dkr.ecr.us-east-1.amazonaws.com/pytorch/pytorch-linux-xenial-cuda9-cudnn7-py3:339"
-    resource_class: large
-    machine:
-      image: ubuntu-1604:201903-01
-    steps:
-    # See Note [Workspace for CircleCI scripts] in job-specs-setup.yml
-    - attach_workspace:
-        at: ~/workspace
-    - run:
-        <<: *should_run_job
-    - run:
-        <<: *setup_linux_system_environment
-    - run:
-        <<: *setup_ci_environment
-    - run:
-        name: Doc Build and Push
-        no_output_timeout: "1h"
-        command: |
-          set -ex
-          export COMMIT_DOCKER_IMAGE=${DOCKER_IMAGE}-${CIRCLE_SHA1}
-          echo "DOCKER_IMAGE: "${COMMIT_DOCKER_IMAGE}
-          docker pull ${COMMIT_DOCKER_IMAGE} >/dev/null
-          export id=$(docker run -t -d -w /var/lib/jenkins ${COMMIT_DOCKER_IMAGE})
+  # pytorch_python_doc_push:
+  #   environment:
+  #     BUILD_ENVIRONMENT: pytorch-python-doc-push
+  #     # TODO: stop hardcoding this
+  #     DOCKER_IMAGE: "308535385114.dkr.ecr.us-east-1.amazonaws.com/pytorch/pytorch-linux-xenial-cuda9-cudnn7-py3:339"
+  #   resource_class: large
+  #   machine:
+  #     image: ubuntu-1604:201903-01
+  #   steps:
+  #   # See Note [Workspace for CircleCI scripts] in job-specs-setup.yml
+  #   - attach_workspace:
+  #       at: ~/workspace
+  #   - run:
+  #       <<: *should_run_job
+  #   - run:
+  #       <<: *setup_linux_system_environment
+  #   - run:
+  #       <<: *setup_ci_environment
+  #   - run:
+  #       name: Doc Build and Push
+  #       no_output_timeout: "1h"
+  #       command: |
+  #         set -ex
+  #         export COMMIT_DOCKER_IMAGE=${DOCKER_IMAGE}-${CIRCLE_SHA1}
+  #         echo "DOCKER_IMAGE: "${COMMIT_DOCKER_IMAGE}
+  #         docker pull ${COMMIT_DOCKER_IMAGE} >/dev/null
+  #         export id=$(docker run -t -d -w /var/lib/jenkins ${COMMIT_DOCKER_IMAGE})
 
-          # master branch docs push
-          if [[ "${CIRCLE_BRANCH}" == "master" ]]; then
-            export COMMAND='((echo "export BUILD_ENVIRONMENT=${BUILD_ENVIRONMENT}" && echo "export GITHUB_PYTORCHBOT_TOKEN=${GITHUB_PYTORCHBOT_TOKEN}" && echo "source ./workspace/env" && echo "sudo chown -R jenkins workspace && cd workspace && . ./.circleci/scripts/python_doc_push_script.sh docs/master master site") | docker exec -u jenkins -i "$id" bash) 2>&1'
+  #         # master branch docs push
+  #         if [[ "${CIRCLE_BRANCH}" == "master" ]]; then
+  #           export COMMAND='((echo "export BUILD_ENVIRONMENT=${BUILD_ENVIRONMENT}" && echo "export GITHUB_PYTORCHBOT_TOKEN=${GITHUB_PYTORCHBOT_TOKEN}" && echo "source ./workspace/env" && echo "sudo chown -R jenkins workspace && cd workspace && . ./.circleci/scripts/python_doc_push_script.sh docs/master master site") | docker exec -u jenkins -i "$id" bash) 2>&1'
 
-          # stable release docs push. Due to some circleci limitations, we keep
-          # an eternal PR open for merging v1.2.0 -> master for this job.
-          # XXX: The following code is only run on the v1.2.0 branch, which might
-          # not be exactly the same as what you see here.
-          elif [[ "${CIRCLE_BRANCH}" == "v1.2.0" ]]; then
-            export COMMAND='((echo "export BUILD_ENVIRONMENT=${BUILD_ENVIRONMENT}" && echo "export GITHUB_PYTORCHBOT_TOKEN=${GITHUB_PYTORCHBOT_TOKEN}" && echo "source ./workspace/env" && echo "sudo chown -R jenkins workspace && cd workspace && . ./.circleci/scripts/python_doc_push_script.sh docs/stable 1.2.0 site dry_run") | docker exec -u jenkins -i "$id" bash) 2>&1'
+  #         # stable release docs push. Due to some circleci limitations, we keep
+  #         # an eternal PR open for merging v1.2.0 -> master for this job.
+  #         # XXX: The following code is only run on the v1.2.0 branch, which might
+  #         # not be exactly the same as what you see here.
+  #         elif [[ "${CIRCLE_BRANCH}" == "v1.2.0" ]]; then
+  #           export COMMAND='((echo "export BUILD_ENVIRONMENT=${BUILD_ENVIRONMENT}" && echo "export GITHUB_PYTORCHBOT_TOKEN=${GITHUB_PYTORCHBOT_TOKEN}" && echo "source ./workspace/env" && echo "sudo chown -R jenkins workspace && cd workspace && . ./.circleci/scripts/python_doc_push_script.sh docs/stable 1.2.0 site dry_run") | docker exec -u jenkins -i "$id" bash) 2>&1'
 
-          # For open PRs: Do a dry_run of the docs build, don't push build
-          else
-            export COMMAND='((echo "export BUILD_ENVIRONMENT=${BUILD_ENVIRONMENT}" && echo "export GITHUB_PYTORCHBOT_TOKEN=${GITHUB_PYTORCHBOT_TOKEN}" && echo "source ./workspace/env" && echo "sudo chown -R jenkins workspace && cd workspace && . ./.circleci/scripts/python_doc_push_script.sh docs/master master site dry_run") | docker exec -u jenkins -i "$id" bash) 2>&1'
-          fi
+  #         # For open PRs: Do a dry_run of the docs build, don't push build
+  #         else
+  #           export COMMAND='((echo "export BUILD_ENVIRONMENT=${BUILD_ENVIRONMENT}" && echo "export GITHUB_PYTORCHBOT_TOKEN=${GITHUB_PYTORCHBOT_TOKEN}" && echo "source ./workspace/env" && echo "sudo chown -R jenkins workspace && cd workspace && . ./.circleci/scripts/python_doc_push_script.sh docs/master master site dry_run") | docker exec -u jenkins -i "$id" bash) 2>&1'
+  #         fi
 
-          echo ${COMMAND} > ./command.sh && unbuffer bash ./command.sh | ts
+  #         echo ${COMMAND} > ./command.sh && unbuffer bash ./command.sh | ts
 
-          # Save the docs build so we can debug any problems
-          export DEBUG_COMMIT_DOCKER_IMAGE=${COMMIT_DOCKER_IMAGE}-debug
-          docker commit "$id" ${DEBUG_COMMIT_DOCKER_IMAGE}
-          docker push ${DEBUG_COMMIT_DOCKER_IMAGE}
+  #         # Save the docs build so we can debug any problems
+  #         export DEBUG_COMMIT_DOCKER_IMAGE=${COMMIT_DOCKER_IMAGE}-debug
+  #         docker commit "$id" ${DEBUG_COMMIT_DOCKER_IMAGE}
+  #         docker push ${DEBUG_COMMIT_DOCKER_IMAGE}
 
-  pytorch_cpp_doc_push:
-    environment:
-      BUILD_ENVIRONMENT: pytorch-cpp-doc-push
-      DOCKER_IMAGE: "308535385114.dkr.ecr.us-east-1.amazonaws.com/pytorch/pytorch-linux-xenial-cuda9-cudnn7-py3:339"
-    resource_class: large
-    machine:
-      image: ubuntu-1604:201903-01
-    steps:
-    # See Note [Workspace for CircleCI scripts] in job-specs-setup.yml
-    - attach_workspace:
-        at: ~/workspace
-    - run:
-        <<: *should_run_job
-    - run:
-        <<: *setup_linux_system_environment
-    - run:
-        <<: *setup_ci_environment
-    - run:
-        name: Doc Build and Push
-        no_output_timeout: "1h"
-        command: |
-          set -ex
-          export COMMIT_DOCKER_IMAGE=${DOCKER_IMAGE}-${CIRCLE_SHA1}
-          echo "DOCKER_IMAGE: "${COMMIT_DOCKER_IMAGE}
-          docker pull ${COMMIT_DOCKER_IMAGE} >/dev/null
-          export id=$(docker run -t -d -w /var/lib/jenkins ${COMMIT_DOCKER_IMAGE})
+  # pytorch_cpp_doc_push:
+  #   environment:
+  #     BUILD_ENVIRONMENT: pytorch-cpp-doc-push
+  #     DOCKER_IMAGE: "308535385114.dkr.ecr.us-east-1.amazonaws.com/pytorch/pytorch-linux-xenial-cuda9-cudnn7-py3:339"
+  #   resource_class: large
+  #   machine:
+  #     image: ubuntu-1604:201903-01
+  #   steps:
+  #   # See Note [Workspace for CircleCI scripts] in job-specs-setup.yml
+  #   - attach_workspace:
+  #       at: ~/workspace
+  #   - run:
+  #       <<: *should_run_job
+  #   - run:
+  #       <<: *setup_linux_system_environment
+  #   - run:
+  #       <<: *setup_ci_environment
+  #   - run:
+  #       name: Doc Build and Push
+  #       no_output_timeout: "1h"
+  #       command: |
+  #         set -ex
+  #         export COMMIT_DOCKER_IMAGE=${DOCKER_IMAGE}-${CIRCLE_SHA1}
+  #         echo "DOCKER_IMAGE: "${COMMIT_DOCKER_IMAGE}
+  #         docker pull ${COMMIT_DOCKER_IMAGE} >/dev/null
+  #         export id=$(docker run -t -d -w /var/lib/jenkins ${COMMIT_DOCKER_IMAGE})
 
-          # master branch docs push
-          if [[ "${CIRCLE_BRANCH}" == "master" ]]; then
-            export COMMAND='((echo "export BUILD_ENVIRONMENT=${BUILD_ENVIRONMENT}" && echo "export GITHUB_PYTORCHBOT_TOKEN=${GITHUB_PYTORCHBOT_TOKEN}" && echo "source ./workspace/env" && echo "sudo chown -R jenkins workspace && cd workspace && . ./.circleci/scripts/cpp_doc_push_script.sh docs/master master") | docker exec -u jenkins -i "$id" bash) 2>&1'
+  #         # master branch docs push
+  #         if [[ "${CIRCLE_BRANCH}" == "master" ]]; then
+  #           export COMMAND='((echo "export BUILD_ENVIRONMENT=${BUILD_ENVIRONMENT}" && echo "export GITHUB_PYTORCHBOT_TOKEN=${GITHUB_PYTORCHBOT_TOKEN}" && echo "source ./workspace/env" && echo "sudo chown -R jenkins workspace && cd workspace && . ./.circleci/scripts/cpp_doc_push_script.sh docs/master master") | docker exec -u jenkins -i "$id" bash) 2>&1'
 
-          # stable release docs push. Due to some circleci limitations, we keep
-          # an eternal PR open (#16502) for merging v1.0.1 -> master for this job.
-          # XXX: The following code is only run on the v1.0.1 branch, which might
-          # not be exactly the same as what you see here.
-          elif [[ "${CIRCLE_BRANCH}" == "v1.0.1" ]]; then
-            export COMMAND='((echo "export BUILD_ENVIRONMENT=${BUILD_ENVIRONMENT}" && echo "export GITHUB_PYTORCHBOT_TOKEN=${GITHUB_PYTORCHBOT_TOKEN}" && echo "source ./workspace/env" && echo "sudo chown -R jenkins workspace && cd workspace && . ./.circleci/scripts/cpp_doc_push_script.sh docs/stable 1.0.1") | docker exec -u jenkins -i "$id" bash) 2>&1'
+  #         # stable release docs push. Due to some circleci limitations, we keep
+  #         # an eternal PR open (#16502) for merging v1.0.1 -> master for this job.
+  #         # XXX: The following code is only run on the v1.0.1 branch, which might
+  #         # not be exactly the same as what you see here.
+  #         elif [[ "${CIRCLE_BRANCH}" == "v1.0.1" ]]; then
+  #           export COMMAND='((echo "export BUILD_ENVIRONMENT=${BUILD_ENVIRONMENT}" && echo "export GITHUB_PYTORCHBOT_TOKEN=${GITHUB_PYTORCHBOT_TOKEN}" && echo "source ./workspace/env" && echo "sudo chown -R jenkins workspace && cd workspace && . ./.circleci/scripts/cpp_doc_push_script.sh docs/stable 1.0.1") | docker exec -u jenkins -i "$id" bash) 2>&1'
 
-          # For open PRs: Do a dry_run of the docs build, don't push build
-          else
-            export COMMAND='((echo "export BUILD_ENVIRONMENT=${BUILD_ENVIRONMENT}" && echo "export GITHUB_PYTORCHBOT_TOKEN=${GITHUB_PYTORCHBOT_TOKEN}" && echo "source ./workspace/env" && echo "sudo chown -R jenkins workspace && cd workspace && . ./.circleci/scripts/cpp_doc_push_script.sh docs/master master dry_run") | docker exec -u jenkins -i "$id" bash) 2>&1'
-          fi
+  #         # For open PRs: Do a dry_run of the docs build, don't push build
+  #         else
+  #           export COMMAND='((echo "export BUILD_ENVIRONMENT=${BUILD_ENVIRONMENT}" && echo "export GITHUB_PYTORCHBOT_TOKEN=${GITHUB_PYTORCHBOT_TOKEN}" && echo "source ./workspace/env" && echo "sudo chown -R jenkins workspace && cd workspace && . ./.circleci/scripts/cpp_doc_push_script.sh docs/master master dry_run") | docker exec -u jenkins -i "$id" bash) 2>&1'
+  #         fi
 
-          echo ${COMMAND} > ./command.sh && unbuffer bash ./command.sh | ts
+  #         echo ${COMMAND} > ./command.sh && unbuffer bash ./command.sh | ts
 
-          # Save the docs build so we can debug any problems
-          export DEBUG_COMMIT_DOCKER_IMAGE=${COMMIT_DOCKER_IMAGE}-debug
-          docker commit "$id" ${DEBUG_COMMIT_DOCKER_IMAGE}
-          docker push ${DEBUG_COMMIT_DOCKER_IMAGE}
+  #         # Save the docs build so we can debug any problems
+  #         export DEBUG_COMMIT_DOCKER_IMAGE=${COMMIT_DOCKER_IMAGE}-debug
+  #         docker commit "$id" ${DEBUG_COMMIT_DOCKER_IMAGE}
+  #         docker push ${DEBUG_COMMIT_DOCKER_IMAGE}
 
-  pytorch_macos_10_13_py3_build:
-    environment:
-      BUILD_ENVIRONMENT: pytorch-macos-10.13-py3-build
+  # pytorch_macos_10_13_py3_build:
+  #   environment:
+  #     BUILD_ENVIRONMENT: pytorch-macos-10.13-py3-build
+  #   macos:
+  #     xcode: "9.0"
+  #   steps:
+  #     # See Note [Workspace for CircleCI scripts] in job-specs-setup.yml
+  #     - attach_workspace:
+  #         at: ~/workspace
+  #     - run:
+  #         <<: *should_run_job
+  #     - checkout
+  #     - run:
+  #         <<: *macos_brew_update
+  #     - run:
+  #         name: Build
+  #         no_output_timeout: "1h"
+  #         command: |
+  #           set -e
+
+  #           export IN_CIRCLECI=1
+
+  #           # Install sccache
+  #           sudo curl https://s3.amazonaws.com/ossci-macos/sccache --output /usr/local/bin/sccache
+  #           sudo chmod +x /usr/local/bin/sccache
+
+  #           export SCCACHE_BUCKET=ossci-compiler-cache-circleci-v2
+  #           # This IAM user allows write access to S3 bucket for sccache
+  #           set +x
+  #           export AWS_ACCESS_KEY_ID=${CIRCLECI_AWS_ACCESS_KEY_FOR_SCCACHE_S3_BUCKET_V4}
+  #           export AWS_SECRET_ACCESS_KEY=${CIRCLECI_AWS_SECRET_KEY_FOR_SCCACHE_S3_BUCKET_V4}
+  #           set -x
+
+  #           chmod a+x .jenkins/pytorch/macos-build.sh
+  #           unbuffer .jenkins/pytorch/macos-build.sh 2>&1 | ts
+
+  #           mkdir -p /Users/distiller/pytorch-ci-env/workspace
+
+  #           # copy with -a to preserve relative structure (e.g., symlinks), and be recursive
+  #           cp -a /Users/distiller/project/. /Users/distiller/pytorch-ci-env/workspace
+  #     - persist_to_workspace:
+  #         root: /Users/distiller/pytorch-ci-env
+  #         paths:
+  #           - "*"
+
+  # pytorch_macos_10_13_py3_test:
+  #   environment:
+  #     BUILD_ENVIRONMENT: pytorch-macos-10.13-py3-test
+  #   macos:
+  #     xcode: "9.0"
+  #   steps:
+  #     # See Note [Workspace for CircleCI scripts] in job-specs-setup.yml
+  #     # This workspace also carries binaries from the build job
+  #     - attach_workspace:
+  #         at: ~/workspace
+  #     - run:
+  #         <<: *should_run_job
+  #     - run:
+  #         <<: *macos_brew_update
+  #     - run:
+  #         name: Test
+  #         no_output_timeout: "1h"
+  #         command: |
+  #           set -e
+  #           export IN_CIRCLECI=1
+
+  #           # copy with -a to preserve relative structure (e.g., symlinks), and be recursive
+  #           # TODO: I'm not sure why we can't just run our job in
+  #           # ~/workspace and call it a day
+  #           # NB: Yes, you need workspace twice
+  #           cp -a ~/workspace/workspace/. /Users/distiller/project
+
+  #           chmod a+x .jenkins/pytorch/macos-test.sh
+  #           unbuffer .jenkins/pytorch/macos-test.sh 2>&1 | ts
+
+  # pytorch_macos_10_13_cuda9_2_cudnn7_py3_build:
+  #   environment:
+  #     BUILD_ENVIRONMENT: pytorch-macos-10.13-cuda9.2-cudnn7-py3-build
+  #   macos:
+  #     xcode: "9.0"
+  #   steps:
+  #     # See Note [Workspace for CircleCI scripts] in job-specs-setup.yml
+  #     - attach_workspace:
+  #         at: ~/workspace
+  #     - run:
+  #         <<: *should_run_job
+  #     - checkout
+  #     - run:
+  #         <<: *macos_brew_update
+  #     - run:
+  #         name: Build
+  #         no_output_timeout: "1h"
+  #         command: |
+  #           set -e
+
+  #           export IN_CIRCLECI=1
+
+  #           # Install CUDA 9.2
+  #           sudo rm -rf ~/cuda_9.2.64_mac_installer.app || true
+  #           curl https://s3.amazonaws.com/ossci-macos/cuda_9.2.64_mac_installer.zip -o ~/cuda_9.2.64_mac_installer.zip
+  #           unzip ~/cuda_9.2.64_mac_installer.zip -d ~/
+  #           sudo ~/cuda_9.2.64_mac_installer.app/Contents/MacOS/CUDAMacOSXInstaller --accept-eula --no-window
+  #           sudo cp /usr/local/cuda/lib/libcuda.dylib /Developer/NVIDIA/CUDA-9.2/lib/libcuda.dylib
+  #           sudo rm -rf /usr/local/cuda || true
+
+  #           # Install cuDNN 7.1 for CUDA 9.2
+  #           curl https://s3.amazonaws.com/ossci-macos/cudnn-9.2-osx-x64-v7.1.tgz -o ~/cudnn-9.2-osx-x64-v7.1.tgz
+  #           rm -rf ~/cudnn-9.2-osx-x64-v7.1 && mkdir ~/cudnn-9.2-osx-x64-v7.1
+  #           tar -xzvf ~/cudnn-9.2-osx-x64-v7.1.tgz -C ~/cudnn-9.2-osx-x64-v7.1
+  #           sudo cp ~/cudnn-9.2-osx-x64-v7.1/cuda/include/cudnn.h /Developer/NVIDIA/CUDA-9.2/include/
+  #           sudo cp ~/cudnn-9.2-osx-x64-v7.1/cuda/lib/libcudnn* /Developer/NVIDIA/CUDA-9.2/lib/
+  #           sudo chmod a+r /Developer/NVIDIA/CUDA-9.2/include/cudnn.h /Developer/NVIDIA/CUDA-9.2/lib/libcudnn*
+
+  #           # Install sccache
+  #           sudo curl https://s3.amazonaws.com/ossci-macos/sccache --output /usr/local/bin/sccache
+  #           sudo chmod +x /usr/local/bin/sccache
+  #           export SCCACHE_BUCKET=ossci-compiler-cache-circleci-v2
+  #           # This IAM user allows write access to S3 bucket for sccache
+  #           set +x
+  #           export AWS_ACCESS_KEY_ID=${CIRCLECI_AWS_ACCESS_KEY_FOR_SCCACHE_S3_BUCKET_V4}
+  #           export AWS_SECRET_ACCESS_KEY=${CIRCLECI_AWS_SECRET_KEY_FOR_SCCACHE_S3_BUCKET_V4}
+  #           set -x
+
+  #           git submodule sync && git submodule update -q --init --recursive
+  #           chmod a+x .jenkins/pytorch/macos-build.sh
+  #           unbuffer .jenkins/pytorch/macos-build.sh 2>&1 | ts
+
+  # pytorch_android_gradle_build:
+  #   environment:
+  #     BUILD_ENVIRONMENT: pytorch-linux-xenial-py3-clang5-android-ndk-r19c-gradle-build
+  #     DOCKER_IMAGE: "308535385114.dkr.ecr.us-east-1.amazonaws.com/pytorch/pytorch-linux-xenial-py3-clang5-android-ndk-r19c:339"
+  #     PYTHON_VERSION: "3.6"
+  #   resource_class: large
+  #   machine:
+  #     image: ubuntu-1604:201903-01
+  #   steps:
+  #   - attach_workspace:
+  #       at: ~/workspace
+  #   - run:
+  #       <<: *should_run_job
+  #   - run:
+  #       <<: *setup_linux_system_environment
+  #   - checkout
+  #   - run:
+  #       <<: *setup_ci_environment
+  #   - run:
+  #       name: pytorch android gradle build
+  #       no_output_timeout: "1h"
+  #       command: |
+  #         set -eux
+  #         docker_image_commit=${DOCKER_IMAGE}-${CIRCLE_SHA1}
+
+  #         docker_image_libtorch_android_x86_32=${docker_image_commit}-android-x86_32
+  #         docker_image_libtorch_android_x86_64=${docker_image_commit}-android-x86_64
+  #         docker_image_libtorch_android_arm_v7a=${docker_image_commit}-android-arm-v7a
+  #         docker_image_libtorch_android_arm_v8a=${docker_image_commit}-android-arm-v8a
+
+  #         echo "docker_image_commit: "${docker_image_commit}
+  #         echo "docker_image_libtorch_android_x86_32: "${docker_image_libtorch_android_x86_32}
+  #         echo "docker_image_libtorch_android_x86_64: "${docker_image_libtorch_android_x86_64}
+  #         echo "docker_image_libtorch_android_arm_v7a: "${docker_image_libtorch_android_arm_v7a}
+  #         echo "docker_image_libtorch_android_arm_v8a: "${docker_image_libtorch_android_arm_v8a}
+
+  #         # x86_32
+  #         docker pull ${docker_image_libtorch_android_x86_32} >/dev/null
+  #         export id_x86_32=$(docker run -t -d -w /var/lib/jenkins ${docker_image_libtorch_android_x86_32})
+
+  #         export COMMAND='((echo "source ./workspace/env" && echo "sudo chown -R jenkins workspace") | docker exec -u jenkins -i "$id_x86_32" bash) 2>&1'
+  #         echo ${COMMAND} > ./command.sh && unbuffer bash ./command.sh | ts
+
+  #         # arm-v7a
+  #         docker pull ${docker_image_libtorch_android_arm_v7a} >/dev/null
+  #         export id_arm_v7a=$(docker run -t -d -w /var/lib/jenkins ${docker_image_libtorch_android_arm_v7a})
+
+  #         export COMMAND='((echo "source ./workspace/env" && echo "sudo chown -R jenkins workspace") | docker exec -u jenkins -i "$id_arm_v7a" bash) 2>&1'
+  #         echo ${COMMAND} > ./command.sh && unbuffer bash ./command.sh | ts
+
+  #         mkdir ~/workspace/build_android_install_arm_v7a
+  #         docker cp $id_arm_v7a:/var/lib/jenkins/workspace/build_android/install ~/workspace/build_android_install_arm_v7a
+
+  #         # x86_64
+  #         docker pull ${docker_image_libtorch_android_x86_64} >/dev/null
+  #         export id_x86_64=$(docker run -t -d -w /var/lib/jenkins ${docker_image_libtorch_android_x86_64})
+
+  #         export COMMAND='((echo "source ./workspace/env" && echo "sudo chown -R jenkins workspace") | docker exec -u jenkins -i "$id_x86_64" bash) 2>&1'
+  #         echo ${COMMAND} > ./command.sh && unbuffer bash ./command.sh | ts
+
+  #         mkdir ~/workspace/build_android_install_x86_64
+  #         docker cp $id_x86_64:/var/lib/jenkins/workspace/build_android/install ~/workspace/build_android_install_x86_64
+
+  #         # arm-v8a
+  #         docker pull ${docker_image_libtorch_android_arm_v8a} >/dev/null
+  #         export id_arm_v8a=$(docker run -t -d -w /var/lib/jenkins ${docker_image_libtorch_android_arm_v8a})
+
+  #         export COMMAND='((echo "source ./workspace/env" && echo "sudo chown -R jenkins workspace") | docker exec -u jenkins -i "$id_arm_v8a" bash) 2>&1'
+  #         echo ${COMMAND} > ./command.sh && unbuffer bash ./command.sh | ts
+
+  #         mkdir ~/workspace/build_android_install_arm_v8a
+  #         docker cp $id_arm_v8a:/var/lib/jenkins/workspace/build_android/install ~/workspace/build_android_install_arm_v8a
+
+  #         docker cp ~/workspace/build_android_install_arm_v7a $id_x86_32:/var/lib/jenkins/workspace/build_android_install_arm_v7a
+  #         docker cp ~/workspace/build_android_install_x86_64 $id_x86_32:/var/lib/jenkins/workspace/build_android_install_x86_64
+  #         docker cp ~/workspace/build_android_install_arm_v8a $id_x86_32:/var/lib/jenkins/workspace/build_android_install_arm_v8a
+
+  #         # run gradle buildRelease
+  #         export COMMAND='((echo "source ./workspace/env" && echo "export BUILD_ENVIRONMENT=${BUILD_ENVIRONMENT}" && echo "sudo chown -R jenkins workspace && cd workspace && ./.circleci/scripts/build_android_gradle.sh") | docker exec -u jenkins -i "$id_x86_32" bash) 2>&1'
+  #         echo ${COMMAND} > ./command.sh && unbuffer bash ./command.sh | ts
+
+  #         mkdir -p ~/workspace/build_android_artifacts
+  #         docker cp $id_x86_32:/var/lib/jenkins/workspace/android/artifacts.tgz ~/workspace/build_android_artifacts/
+
+  #         output_image=$docker_image_libtorch_android_x86_32-gradle
+  #         docker commit "$id_x86_32" ${output_image}
+  #         docker push ${output_image}
+  #   - store_artifacts:
+  #       path: ~/workspace/build_android_artifacts/artifacts.tgz
+  #       destination: artifacts.tgz
+
+  # pytorch_android_gradle_build-x86_32:
+  #   environment:
+  #     BUILD_ENVIRONMENT: pytorch-linux-xenial-py3-clang5-android-ndk-r19c-gradle-build-only-x86_32
+  #     DOCKER_IMAGE: "308535385114.dkr.ecr.us-east-1.amazonaws.com/pytorch/pytorch-linux-xenial-py3-clang5-android-ndk-r19c:339"
+  #     PYTHON_VERSION: "3.6"
+  #   resource_class: large
+  #   machine:
+  #     image: ubuntu-1604:201903-01
+  #   steps:
+  #   - attach_workspace:
+  #       at: ~/workspace
+  #   - run:
+  #       <<: *should_run_job
+  #   - run:
+  #       name: filter out not PR runs
+  #       no_output_timeout: "5m"
+  #       command: |
+  #         echo "CIRCLE_PULL_REQUEST: ${CIRCLE_PULL_REQUEST:-}"
+  #         if [ -z "${CIRCLE_PULL_REQUEST:-}" ]; then
+  #           circleci step halt
+  #         fi
+  #   - run:
+  #       <<: *setup_linux_system_environment
+  #   - checkout
+  #   - run:
+  #       <<: *setup_ci_environment
+  #   - run:
+  #       name: pytorch android gradle build only x86_32 (for PR)
+  #       no_output_timeout: "1h"
+  #       command: |
+  #         set -e
+  #         docker_image_libtorch_android_x86_32=${DOCKER_IMAGE}-${CIRCLE_SHA1}-android-x86_32
+  #         echo "docker_image_libtorch_android_x86_32: "${docker_image_libtorch_android_x86_32}
+
+  #         # x86
+  #         docker pull ${docker_image_libtorch_android_x86_32} >/dev/null
+  #         export id=$(docker run -t -d -w /var/lib/jenkins ${docker_image_libtorch_android_x86_32})
+
+  #         export COMMAND='((echo "source ./workspace/env" && echo "export BUILD_ENVIRONMENT=${BUILD_ENVIRONMENT}" && echo "sudo chown -R jenkins workspace && cd workspace && ./.circleci/scripts/build_android_gradle.sh") | docker exec -u jenkins -i "$id" bash) 2>&1'
+  #         echo ${COMMAND} > ./command.sh && unbuffer bash ./command.sh | ts
+
+  #         mkdir -p ~/workspace/build_android_x86_32_artifacts
+  #         docker cp $id:/var/lib/jenkins/workspace/android/artifacts.tgz ~/workspace/build_android_x86_32_artifacts/
+
+  #         output_image=${DOCKER_IMAGE}-${CIRCLE_SHA1}-android-gradle-x86_32
+  #         docker commit "$id" ${output_image}
+  #         docker push ${output_image}
+  #   - store_artifacts:
+  #       path: ~/workspace/build_android_x86_32_artifacts/artifacts.tgz
+  #       destination: artifacts.tgz
+  pytorch_ios_upload:
+    <<: *pytorch_ios_params
     macos:
-      xcode: "9.0"
+      xcode: "10.2.1"
+    steps:
+      - attach_workspace:
+          at: ~/workspace
+      - run:
+          <<: *should_run_job
+      - checkout
+      - run:
+          <<: *ios_brew_update
+      - run:
+          name: Build
+          no_output_timeout: "1h"
+          command: |
+            set -eux -o pipefail
+            script="/Users/distiller/project/.circleci/scripts/binary_ios_upload.sh"
+            cat "$script"
+            source "$script"
+
+      # - run:
+      #     name: Upload
+      #     no_output_timeout: "1h"
+      #     contxt: org-member
+      #     command: |
+      #       set -e
+      #       echo ""
+      #       echo "PWD: `pwd`"
+      #       WORKSPACE=/Users/distiller/workspace
+      #       ARTIFACTS_DIR=${WORKSPACE}/ios
+      #       ls ${ARTIFACTS_DIR}
+      #       ZIP_DIR=${WORKSPACE}/zip
+      #       mkdir -p ${ZIP_DIR}/install/lib
+      #       mkdir -p ${ZIP_DIR}/src
+      #       # copy header files
+      #       cp -R ${ARTIFACTS_DIR}/arm64/include ${ZIP_DIR}/install/
+      #       # archvie to FAT bianry
+      #       libs=(${ARTIFACTS_DIR}/x86_64/lib/libtorch_x86_64.a ${ARTIFACTS_DIR}/arm64/lib/libtorch_arm64.a ${ARTIFACTS_DIR}/armv7s/lib/libtorch_armv7s.a )
+      #       lipo -create ${libs[@]} -o ${ZIP_DIR}/install/lib/libtorch.a
+      #       lipo -i ${ZIP_DIR}/install/lib/libtorch.a
+      #       # make the zip
+      #       touch ${ZIP_DIR}/src/LibTorch.h
+      #       echo "import <torch/script.h>" > ${ZIP_DIR}/src/LibTorch.h
+      #       # zip the library
+      #       export ZIPFILE=libtorch_ios_`date +%m%d%Y`_0.0.1.zip
+      #       cd ${ZIP_DIR}
+      #       zip -r ${ZIPFILE} install src
+      #       # upload to aws
+      #       brew install awscli
+      #       set +x
+      #       export AWS_ACCESS_KEY_ID=${AWS_S3_ACCESS_KEY_FOR_PYTORCH_BINARY_UPLOAD}
+      #       export AWS_SECRET_ACCESS_KEY=${AWS_S3_ACCESS_SECRET_FOR_PYTORCH_BINARY_UPLOAD}
+      #       set +x
+      #       echo "AWS KEY: ${AWS_ACCESS_KEY_ID}"
+      #       echo "AWS SECRET: ${AWS_SECRET_ACCESS_KEY}"  
+      #       aws s3 cp ${ZIPFILE} s3://ossci-ios-build/ --acl public-read
+            
+  pytorch_ios_build:
+    <<: *pytorch_ios_params  
+    macos:
+      xcode: "10.2.1"
     steps:
       # See Note [Workspace for CircleCI scripts] in job-specs-setup.yml
       - attach_workspace:
@@ -152,258 +477,95 @@
           <<: *should_run_job
       - checkout
       - run:
-          <<: *macos_brew_update
+          <<: *ios_brew_update
       - run:
           name: Build
           no_output_timeout: "1h"
           command: |
-            set -e
+            set -eux -o pipefail
+            echo ""
+            echo "PWD: ${PWD}"
+            script="/Users/distiller/project/.circleci/scripts/binary_ios_build.sh"
+            cat "$script"
+            source "$script"
+      # - run:
+      #     name: Build
+      #     no_output_timeout: "1h"
+      #     contxt: org-member
+      #     command: |
+      #       set -e
+            
+      #       echo ""
+      #       echo "PWD: ${PWD}"
+      #       WORKSPACE=/Users/distiller/workspace
+      #       PROJ_ROOT=/Users/distiller/project
+      #       export TCLLIBPATH="/usr/local/lib" 
+            
+      #       # Install conda
+      #       curl -o ~/Downloads/conda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
+      #       chmod +x ~/Downloads/conda.sh
+      #       /bin/bash ~/Downloads/conda.sh -b -p ~/anaconda
+      #       export PATH="~/anaconda/bin:${PATH}"
+      #       source ~/anaconda/bin/activate
+      #       # Install dependencies
+      #       conda install numpy ninja pyyaml mkl mkl-include setuptools cmake cffi typing requests
+          
+      #       # sync submodules
+      #       cd ${PROJ_ROOT}
+      #       git submodule sync
+      #       git submodule update --init --recursive
 
-            export IN_CIRCLECI=1
+      #       # export 
+      #       export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"}
+            
+      #       # run build script
+      #       chmod a+x ${PROJ_ROOT}/scripts/build_ios.sh
+      #       echo "########################################################"
+      #       cat ${PROJ_ROOT}/scripts/build_ios.sh
+      #       echo "########################################################"
 
-            # Install sccache
-            sudo curl https://s3.amazonaws.com/ossci-macos/sccache --output /usr/local/bin/sccache
-            sudo chmod +x /usr/local/bin/sccache
+      #       echo "IOS_ARCH: ${IOS_ARCH}"
+      #       echo "IOS_PLATFORM: ${IOS_PLATFORM}"
+      #       BUILD_PYTORCH_MOBILE=1
+      #       # unbuffer ${PROJ_ROOT}/scripts/build_ios.sh 2>&1 | ts
 
-            export SCCACHE_BUCKET=ossci-compiler-cache-circleci-v2
-            # This IAM user allows write access to S3 bucket for sccache
-            set +x
-            export AWS_ACCESS_KEY_ID=${CIRCLECI_AWS_ACCESS_KEY_FOR_SCCACHE_S3_BUCKET_V4}
-            export AWS_SECRET_ACCESS_KEY=${CIRCLECI_AWS_SECRET_KEY_FOR_SCCACHE_S3_BUCKET_V4}
-            set -x
+      #       CMAKE_ARGS=() 
+      #       if [ -n "${IOS_ARCH:-}" ]; then
+      #         CMAKE_ARGS+=("-DIOS_ARCH=${IOS_ARCH}")
+      #         export IOS_ARCH=${IOS_ARCH}
+      #       fi
+      #       if [ -n "${IOS_PLATFORM:-}" ]; then
+      #         CMAKE_ARGS+=("-DIOS_PLATFORM=${IOS_PLATFORM}")
+      #       fi
+      #       if [ -n "${USE_NNPACK:-}" ]; then 
+      #         CMAKE_ARGS+=("-DUSE_NNPACK=${USE_NNPACK}")
+      #       fi 
+      #       CMAKE_ARGS+=("-DBUILD_CAFFE2_MOBILE=OFF")
+      #       CMAKE_ARGS+=("-DCMAKE_PREFIX_PATH=$(python -c 'from distutils.sysconfig import get_python_lib; print(get_python_lib())')")
+      #       CMAKE_ARGS+=("-DPYTHON_EXECUTABLE=$(python -c 'import sys; print(sys.executable)')")
 
-            chmod a+x .jenkins/pytorch/macos-build.sh
-            unbuffer .jenkins/pytorch/macos-build.sh 2>&1 | ts
+      #       unbuffer ${PROJ_ROOT}/scripts/build_ios.sh ${CMAKE_ARGS[@]} 2>&1 | ts
 
-            mkdir -p /Users/distiller/pytorch-ci-env/workspace
+      #       #archive the static libraries
+      #       cd ${PROJ_ROOT}/build_ios/install/lib
+                        
+      #       ####### for testing ########
+      #       rm -rf ${PROJ_ROOT}/build_ios/install/lib/libprotobuf-lite.a
+      #       rm -rf ${PROJ_ROOT}/build_ios/install/lib/libpthreadpool.a
+            
+      #       #############################
+      #       OUTPUT=libtorch_${IOS_ARCH}.a
+      #       cd ${PROJ_ROOT}/build_ios/install/lib
+      #       libtool -static *.a -o ${OUTPUT}
+            
+      #       #store the binary
+      #       cd ${WORKSPACE}
+      #       DEST_DIR=${WORKSPACE}/ios
+      #       mkdir -p ${DEST_DIR}
 
-            # copy with -a to preserve relative structure (e.g., symlinks), and be recursive
-            cp -a /Users/distiller/project/. /Users/distiller/pytorch-ci-env/workspace
+      #       cp -R ${PROJ_ROOT}/build_ios/install ${DEST_DIR}
+      #       mv ${DEST_DIR}/install ${DEST_DIR}/${IOS_ARCH}
       - persist_to_workspace:
-          root: /Users/distiller/pytorch-ci-env
-          paths:
-            - "*"
-
-  pytorch_macos_10_13_py3_test:
-    environment:
-      BUILD_ENVIRONMENT: pytorch-macos-10.13-py3-test
-    macos:
-      xcode: "9.0"
-    steps:
-      # See Note [Workspace for CircleCI scripts] in job-specs-setup.yml
-      # This workspace also carries binaries from the build job
-      - attach_workspace:
-          at: ~/workspace
-      - run:
-          <<: *should_run_job
-      - run:
-          <<: *macos_brew_update
-      - run:
-          name: Test
-          no_output_timeout: "1h"
-          command: |
-            set -e
-            export IN_CIRCLECI=1
-
-            # copy with -a to preserve relative structure (e.g., symlinks), and be recursive
-            # TODO: I'm not sure why we can't just run our job in
-            # ~/workspace and call it a day
-            # NB: Yes, you need workspace twice
-            cp -a ~/workspace/workspace/. /Users/distiller/project
-
-            chmod a+x .jenkins/pytorch/macos-test.sh
-            unbuffer .jenkins/pytorch/macos-test.sh 2>&1 | ts
-
-  pytorch_macos_10_13_cuda9_2_cudnn7_py3_build:
-    environment:
-      BUILD_ENVIRONMENT: pytorch-macos-10.13-cuda9.2-cudnn7-py3-build
-    macos:
-      xcode: "9.0"
-    steps:
-      # See Note [Workspace for CircleCI scripts] in job-specs-setup.yml
-      - attach_workspace:
-          at: ~/workspace
-      - run:
-          <<: *should_run_job
-      - checkout
-      - run:
-          <<: *macos_brew_update
-      - run:
-          name: Build
-          no_output_timeout: "1h"
-          command: |
-            set -e
-
-            export IN_CIRCLECI=1
-
-            # Install CUDA 9.2
-            sudo rm -rf ~/cuda_9.2.64_mac_installer.app || true
-            curl https://s3.amazonaws.com/ossci-macos/cuda_9.2.64_mac_installer.zip -o ~/cuda_9.2.64_mac_installer.zip
-            unzip ~/cuda_9.2.64_mac_installer.zip -d ~/
-            sudo ~/cuda_9.2.64_mac_installer.app/Contents/MacOS/CUDAMacOSXInstaller --accept-eula --no-window
-            sudo cp /usr/local/cuda/lib/libcuda.dylib /Developer/NVIDIA/CUDA-9.2/lib/libcuda.dylib
-            sudo rm -rf /usr/local/cuda || true
-
-            # Install cuDNN 7.1 for CUDA 9.2
-            curl https://s3.amazonaws.com/ossci-macos/cudnn-9.2-osx-x64-v7.1.tgz -o ~/cudnn-9.2-osx-x64-v7.1.tgz
-            rm -rf ~/cudnn-9.2-osx-x64-v7.1 && mkdir ~/cudnn-9.2-osx-x64-v7.1
-            tar -xzvf ~/cudnn-9.2-osx-x64-v7.1.tgz -C ~/cudnn-9.2-osx-x64-v7.1
-            sudo cp ~/cudnn-9.2-osx-x64-v7.1/cuda/include/cudnn.h /Developer/NVIDIA/CUDA-9.2/include/
-            sudo cp ~/cudnn-9.2-osx-x64-v7.1/cuda/lib/libcudnn* /Developer/NVIDIA/CUDA-9.2/lib/
-            sudo chmod a+r /Developer/NVIDIA/CUDA-9.2/include/cudnn.h /Developer/NVIDIA/CUDA-9.2/lib/libcudnn*
-
-            # Install sccache
-            sudo curl https://s3.amazonaws.com/ossci-macos/sccache --output /usr/local/bin/sccache
-            sudo chmod +x /usr/local/bin/sccache
-            export SCCACHE_BUCKET=ossci-compiler-cache-circleci-v2
-            # This IAM user allows write access to S3 bucket for sccache
-            set +x
-            export AWS_ACCESS_KEY_ID=${CIRCLECI_AWS_ACCESS_KEY_FOR_SCCACHE_S3_BUCKET_V4}
-            export AWS_SECRET_ACCESS_KEY=${CIRCLECI_AWS_SECRET_KEY_FOR_SCCACHE_S3_BUCKET_V4}
-            set -x
-
-            git submodule sync && git submodule update -q --init --recursive
-            chmod a+x .jenkins/pytorch/macos-build.sh
-            unbuffer .jenkins/pytorch/macos-build.sh 2>&1 | ts
-
-  pytorch_android_gradle_build:
-    environment:
-      BUILD_ENVIRONMENT: pytorch-linux-xenial-py3-clang5-android-ndk-r19c-gradle-build
-      DOCKER_IMAGE: "308535385114.dkr.ecr.us-east-1.amazonaws.com/pytorch/pytorch-linux-xenial-py3-clang5-android-ndk-r19c:339"
-      PYTHON_VERSION: "3.6"
-    resource_class: large
-    machine:
-      image: ubuntu-1604:201903-01
-    steps:
-    - attach_workspace:
-        at: ~/workspace
-    - run:
-        <<: *should_run_job
-    - run:
-        <<: *setup_linux_system_environment
-    - checkout
-    - run:
-        <<: *setup_ci_environment
-    - run:
-        name: pytorch android gradle build
-        no_output_timeout: "1h"
-        command: |
-          set -eux
-          docker_image_commit=${DOCKER_IMAGE}-${CIRCLE_SHA1}
-
-          docker_image_libtorch_android_x86_32=${docker_image_commit}-android-x86_32
-          docker_image_libtorch_android_x86_64=${docker_image_commit}-android-x86_64
-          docker_image_libtorch_android_arm_v7a=${docker_image_commit}-android-arm-v7a
-          docker_image_libtorch_android_arm_v8a=${docker_image_commit}-android-arm-v8a
-
-          echo "docker_image_commit: "${docker_image_commit}
-          echo "docker_image_libtorch_android_x86_32: "${docker_image_libtorch_android_x86_32}
-          echo "docker_image_libtorch_android_x86_64: "${docker_image_libtorch_android_x86_64}
-          echo "docker_image_libtorch_android_arm_v7a: "${docker_image_libtorch_android_arm_v7a}
-          echo "docker_image_libtorch_android_arm_v8a: "${docker_image_libtorch_android_arm_v8a}
-
-          # x86_32
-          docker pull ${docker_image_libtorch_android_x86_32} >/dev/null
-          export id_x86_32=$(docker run -t -d -w /var/lib/jenkins ${docker_image_libtorch_android_x86_32})
-
-          export COMMAND='((echo "source ./workspace/env" && echo "sudo chown -R jenkins workspace") | docker exec -u jenkins -i "$id_x86_32" bash) 2>&1'
-          echo ${COMMAND} > ./command.sh && unbuffer bash ./command.sh | ts
-
-          # arm-v7a
-          docker pull ${docker_image_libtorch_android_arm_v7a} >/dev/null
-          export id_arm_v7a=$(docker run -t -d -w /var/lib/jenkins ${docker_image_libtorch_android_arm_v7a})
-
-          export COMMAND='((echo "source ./workspace/env" && echo "sudo chown -R jenkins workspace") | docker exec -u jenkins -i "$id_arm_v7a" bash) 2>&1'
-          echo ${COMMAND} > ./command.sh && unbuffer bash ./command.sh | ts
-
-          mkdir ~/workspace/build_android_install_arm_v7a
-          docker cp $id_arm_v7a:/var/lib/jenkins/workspace/build_android/install ~/workspace/build_android_install_arm_v7a
-
-          # x86_64
-          docker pull ${docker_image_libtorch_android_x86_64} >/dev/null
-          export id_x86_64=$(docker run -t -d -w /var/lib/jenkins ${docker_image_libtorch_android_x86_64})
-
-          export COMMAND='((echo "source ./workspace/env" && echo "sudo chown -R jenkins workspace") | docker exec -u jenkins -i "$id_x86_64" bash) 2>&1'
-          echo ${COMMAND} > ./command.sh && unbuffer bash ./command.sh | ts
-
-          mkdir ~/workspace/build_android_install_x86_64
-          docker cp $id_x86_64:/var/lib/jenkins/workspace/build_android/install ~/workspace/build_android_install_x86_64
-
-          # arm-v8a
-          docker pull ${docker_image_libtorch_android_arm_v8a} >/dev/null
-          export id_arm_v8a=$(docker run -t -d -w /var/lib/jenkins ${docker_image_libtorch_android_arm_v8a})
-
-          export COMMAND='((echo "source ./workspace/env" && echo "sudo chown -R jenkins workspace") | docker exec -u jenkins -i "$id_arm_v8a" bash) 2>&1'
-          echo ${COMMAND} > ./command.sh && unbuffer bash ./command.sh | ts
-
-          mkdir ~/workspace/build_android_install_arm_v8a
-          docker cp $id_arm_v8a:/var/lib/jenkins/workspace/build_android/install ~/workspace/build_android_install_arm_v8a
-
-          docker cp ~/workspace/build_android_install_arm_v7a $id_x86_32:/var/lib/jenkins/workspace/build_android_install_arm_v7a
-          docker cp ~/workspace/build_android_install_x86_64 $id_x86_32:/var/lib/jenkins/workspace/build_android_install_x86_64
-          docker cp ~/workspace/build_android_install_arm_v8a $id_x86_32:/var/lib/jenkins/workspace/build_android_install_arm_v8a
-
-          # run gradle buildRelease
-          export COMMAND='((echo "source ./workspace/env" && echo "export BUILD_ENVIRONMENT=${BUILD_ENVIRONMENT}" && echo "sudo chown -R jenkins workspace && cd workspace && ./.circleci/scripts/build_android_gradle.sh") | docker exec -u jenkins -i "$id_x86_32" bash) 2>&1'
-          echo ${COMMAND} > ./command.sh && unbuffer bash ./command.sh | ts
-
-          mkdir -p ~/workspace/build_android_artifacts
-          docker cp $id_x86_32:/var/lib/jenkins/workspace/android/artifacts.tgz ~/workspace/build_android_artifacts/
-
-          output_image=$docker_image_libtorch_android_x86_32-gradle
-          docker commit "$id_x86_32" ${output_image}
-          docker push ${output_image}
-    - store_artifacts:
-        path: ~/workspace/build_android_artifacts/artifacts.tgz
-        destination: artifacts.tgz
-
-  pytorch_android_gradle_build-x86_32:
-    environment:
-      BUILD_ENVIRONMENT: pytorch-linux-xenial-py3-clang5-android-ndk-r19c-gradle-build-only-x86_32
-      DOCKER_IMAGE: "308535385114.dkr.ecr.us-east-1.amazonaws.com/pytorch/pytorch-linux-xenial-py3-clang5-android-ndk-r19c:339"
-      PYTHON_VERSION: "3.6"
-    resource_class: large
-    machine:
-      image: ubuntu-1604:201903-01
-    steps:
-    - attach_workspace:
-        at: ~/workspace
-    - run:
-        <<: *should_run_job
-    - run:
-        name: filter out not PR runs
-        no_output_timeout: "5m"
-        command: |
-          echo "CIRCLE_PULL_REQUEST: ${CIRCLE_PULL_REQUEST:-}"
-          if [ -z "${CIRCLE_PULL_REQUEST:-}" ]; then
-            circleci step halt
-          fi
-    - run:
-        <<: *setup_linux_system_environment
-    - checkout
-    - run:
-        <<: *setup_ci_environment
-    - run:
-        name: pytorch android gradle build only x86_32 (for PR)
-        no_output_timeout: "1h"
-        command: |
-          set -e
-          docker_image_libtorch_android_x86_32=${DOCKER_IMAGE}-${CIRCLE_SHA1}-android-x86_32
-          echo "docker_image_libtorch_android_x86_32: "${docker_image_libtorch_android_x86_32}
-
-          # x86
-          docker pull ${docker_image_libtorch_android_x86_32} >/dev/null
-          export id=$(docker run -t -d -w /var/lib/jenkins ${docker_image_libtorch_android_x86_32})
-
-          export COMMAND='((echo "source ./workspace/env" && echo "export BUILD_ENVIRONMENT=${BUILD_ENVIRONMENT}" && echo "sudo chown -R jenkins workspace && cd workspace && ./.circleci/scripts/build_android_gradle.sh") | docker exec -u jenkins -i "$id" bash) 2>&1'
-          echo ${COMMAND} > ./command.sh && unbuffer bash ./command.sh | ts
-
-          mkdir -p ~/workspace/build_android_x86_32_artifacts
-          docker cp $id:/var/lib/jenkins/workspace/android/artifacts.tgz ~/workspace/build_android_x86_32_artifacts/
-
-          output_image=${DOCKER_IMAGE}-${CIRCLE_SHA1}-android-gradle-x86_32
-          docker commit "$id" ${output_image}
-          docker push ${output_image}
-    - store_artifacts:
-        path: ~/workspace/build_android_x86_32_artifacts/artifacts.tgz
-        destination: artifacts.tgz
+          root: /Users/distiller/workspace/
+          paths: 
+            - ios
