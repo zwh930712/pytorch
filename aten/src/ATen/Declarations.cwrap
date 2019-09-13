@@ -1995,7 +1995,6 @@
     - arg: THTensor* result
       output: True
       resize: [ [self, 0] ]
-      cpu_zero: True
     - argument 0
     - THTensor* self
     - THTensor* vec
@@ -2014,7 +2013,6 @@
         - arg: THTensor* result
           output: True
           resize: [ [self, 0], [mat2,1] ]
-          cpu_zero: True
         - argument 0
         - THTensor* self
         - THTensor* mat2
@@ -2034,7 +2032,6 @@
     - arg: THTensor* result
       output: True
       resize: [ [self,0], [self,1], [mat2,2] ]
-      cpu_zero: True
     - argument 0
     - THTensor* self
     - THTensor* mat2
