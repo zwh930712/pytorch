@@ -454,8 +454,6 @@ THFormal = TypedDict('THFormal', {
     'default_init': str,
     'output': bool,
     'size': int,
-    'declared_type': str,
-    'ignore_check': bool,
     'allocate': bool,
     'mask': bool,
     'wrap_dim': str,
