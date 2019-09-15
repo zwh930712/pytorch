@@ -9,17 +9,23 @@ namespace rpc {
 
 enum MessageType {
   SCRIPT_CALL = 0,
-  SCRIPT_RET,
-  PYTHON_CALL,
-  PYTHON_RET,
-  REMOTE_CALL,
-  RREF_FETCH_CALL,
-  RREF_FETCH_RET,
-  RREF_USER_CREATE,
-  RREF_USER_DELETE,
-  SHUTDOWN,
-  EXCEPTION,
-  UNKNOWN
+  SCRIPT_RET = 1,
+  PYTHON_CALL = 2,
+  PYTHON_RET = 3,
+  SCRIPT_REMOTE_CALL = 4, // A remote call on a builtin operator
+  PYTHON_REMOTE_CALL = 5, // A remote call on a Python UDF
+  REMOTE_RET = 6, // A remote call on a Python UDF
+  SCRIPT_RREF_FETCH_CALL = 7, // A UserRRef<IValue> fetches value from owner
+  PYTHON_RREF_FETCH_CALL = 8, // A UserRRef<py::object> fetches value from owner
+  RREF_FETCH_RET = 9, // An OwnerRRef sends value to user
+  RREF_USER_ACCEPT = 10, // An OwnerRRef accepts a user
+  RREF_USER_DELETE = 11, // A UserRRef tells the owner to deref
+  RREF_FORK_NOTIFY = 12, // A UserRRef tells the owner on fork
+  RREF_FORK_ACCEPT = 13, // An OwnerRRef accepts a fork request
+  SHUTDOWN = 14,
+  EXCEPTION = 15,
+  ACK = 16,
+  UNKNOWN = 17
 };
 
 // A message to be sent/received by an RpcAgent.
@@ -67,7 +73,6 @@ class TORCH_API Message final {
   const MessageType& type() const;
 
   bool isRequest() const;
-  bool requiresResponse() const;
   bool isResponse() const;
   bool isShutdown() const;
 

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-from . import invoke_rpc_builtin, invoke_rpc_python_udf, invoke_remote_builtin
+from . import invoke_rpc_builtin, invoke_rpc_python_udf
+from . import invoke_remote_builtin, invoke_remote_python_udf
 from . import init_rref_context
 from . import ProcessGroupAgent
-from . import WorkerId
+from . import WorkerInfo
 from .internal_rpc_utils import serialize, PythonUDF
 
 import sys
@@ -88,7 +89,7 @@ def get_worker_id(worker_name=None):
 
 
 def _to_worker_id(name_or_id):
-    if isinstance(name_or_id, WorkerId):
+    if isinstance(name_or_id, WorkerInfo):
         return name_or_id
     elif isinstance(name_or_id, str):
         return get_worker_id(name_or_id)
@@ -139,8 +140,15 @@ def remote(to, func, args=None, kwargs=None):
     args = args if args else ()
     kwargs = kwargs if kwargs else {}
 
-    return invoke_remote_builtin(
-        _agent, _to_worker_id(to), qualified_name, *args, **kwargs)
+    to = _to_worker_id(to)
+    if qualified_name is not None:
+        return invoke_remote_builtin(
+            _agent, to, qualified_name, *args, **kwargs)
+    else:
+        rref = invoke_remote_python_udf(
+            _agent, to, serialize(PythonUDF(func, args, kwargs), to.id))
+
+        return rref
 
 
 @_require_initialized
@@ -214,12 +222,12 @@ def rpc(to, func, args=None, kwargs=None, async_call=False):
     args = args if args else ()
     kwargs = kwargs if kwargs else {}
 
+    to = _to_worker_id(to)
     if qualified_name is not None:
-        fut = invoke_rpc_builtin(
-            _agent, _to_worker_id(to), qualified_name, *args, **kwargs)
+        fut = invoke_rpc_builtin(_agent, to, qualified_name, *args, **kwargs)
     else:
         fut = invoke_rpc_python_udf(
-            _agent, _to_worker_id(to), serialize(PythonUDF(func, args, kwargs)))
+            _agent, to, serialize(PythonUDF(func, args, kwargs), to.id))
 
     if async_call:
         return fut
