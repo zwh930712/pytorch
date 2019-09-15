@@ -392,6 +392,22 @@ class CAFFE2_API Tensor {
 
   //example
   //Tensor * add(Tensor & b);
+  int64_t bench__nodispatch_at() const;
+  int64_t bench__nodispatch_c10() const;
+  int64_t bench__one_arg_at() const;
+  int64_t bench__one_arg_c10() const;
+  Tensor bench__one_arg_return_at() const;
+  Tensor bench__one_arg_return_c10() const;
+  int64_t bench__two_args_at(const Tensor & other) const;
+  int64_t bench__two_args_c10(const Tensor & other) const;
+  Tensor bench__two_args_return_at(const Tensor & other) const;
+  Tensor bench__two_args_return_c10(const Tensor & other) const;
+  int64_t bench__three_args_at(const Tensor & other, const Tensor & third) const;
+  int64_t bench__three_args_c10(const Tensor & other, const Tensor & third) const;
+  Tensor bench__three_args_return_at(const Tensor & other, const Tensor & third) const;
+  Tensor bench__three_args_return_c10(const Tensor & other, const Tensor & third) const;
+  Tensor bench__add_at(const Tensor & b) const;
+  Tensor bench__add_c10(const Tensor & b) const;
   void backward(const Tensor & gradient={}, bool keep_graph=false, bool create_graph=false) const;
   void set_data(const Tensor & new_data) const;
   Tensor data() const;

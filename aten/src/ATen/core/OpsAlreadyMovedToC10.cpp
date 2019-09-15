@@ -8,6 +8,15 @@ namespace at {
 
 const std::unordered_set<c10::OperatorName>& aten_ops_already_moved_to_c10() {
   static std::unordered_set<c10::OperatorName> result {
+        {"aten::bench__zero_args_c10", ""},
+        {"aten::bench__nodispatch_c10", ""},
+        {"aten::bench__one_arg_c10", ""},
+        {"aten::bench__one_arg_return_c10", ""},
+        {"aten::bench__two_args_c10", ""},
+        {"aten::bench__two_args_return_c10", ""},
+        {"aten::bench__three_args_c10", ""},
+        {"aten::bench__three_args_return_c10", ""},
+        {"aten::bench__add_c10", ""},
         {"aten::_cast_Byte", ""},
         {"aten::_cast_Char", ""},
         {"aten::_cast_Double", ""},
@@ -687,6 +696,15 @@ const std::unordered_set<c10::OperatorName>& aten_ops_already_moved_to_c10() {
 
 const std::unordered_set<c10::OperatorName>& aten_ops_not_moved_to_c10_yet() {
   static std::unordered_set<c10::OperatorName> result {
+        {"aten::bench__zero_args_at", ""},
+        {"aten::bench__nodispatch_at", ""},
+        {"aten::bench__one_arg_at", ""},
+        {"aten::bench__one_arg_return_at", ""},
+        {"aten::bench__two_args_at", ""},
+        {"aten::bench__two_args_return_at", ""},
+        {"aten::bench__three_args_at", ""},
+        {"aten::bench__three_args_return_at", ""},
+        {"aten::bench__add_at", ""},
         {"aten::backward", ""},
         {"aten::set_data", ""},
         {"aten::data", ""},

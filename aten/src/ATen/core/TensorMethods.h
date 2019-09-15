@@ -56,6 +56,226 @@ inline TensorOptions Tensor::options() const {
 }
 
 // all static inline to allow for inlining of the non-dynamic part of dispatch
+inline int64_t Tensor::bench__nodispatch_at() const {
+#ifdef USE_STATIC_DISPATCH
+    return TypeDefault::bench__nodispatch_at(const_cast<Tensor&>(*this));
+#else
+    static auto table = globalATenDispatch().getOpTable("aten::bench__nodispatch_at(Tensor self) -> int");
+    return table->getOp<int64_t (const Tensor &)>(type_set())(const_cast<Tensor&>(*this));
+#endif
+}
+inline int64_t Tensor::bench__nodispatch_c10() const {
+#ifdef USE_STATIC_DISPATCH
+    return TypeDefault::bench__nodispatch_c10(const_cast<Tensor&>(*this));
+#else
+    static c10::OperatorHandle op = c10::Dispatcher::singleton().findSchema({"aten::bench__nodispatch_c10", ""}).value();
+    return c10::Dispatcher::singleton().lookup(op, impl::dispatchTypeId(type_set()))
+        .callUnboxed<int64_t, const Tensor &>(const_cast<Tensor&>(*this));
+#endif
+}
+inline int64_t Tensor::bench__one_arg_at() const {
+#ifdef USE_STATIC_DISPATCH
+    switch(tensorTypeIdToBackend(impl::dispatchTypeId(type_set()))) {
+        case Backend::CPU:
+            return CPUType::bench__one_arg_at(const_cast<Tensor&>(*this));
+            break;
+        default:
+            AT_ERROR("bench__one_arg_at not implemented for ", at::toString(type_set()));
+    }
+#else
+    static auto table = globalATenDispatch().getOpTable("aten::bench__one_arg_at(Tensor self) -> int");
+    return table->getOp<int64_t (const Tensor &)>(type_set())(const_cast<Tensor&>(*this));
+#endif
+}
+inline int64_t Tensor::bench__one_arg_c10() const {
+#ifdef USE_STATIC_DISPATCH
+    switch(tensorTypeIdToBackend(impl::dispatchTypeId(type_set()))) {
+        case Backend::CPU:
+            return CPUType::bench__one_arg_c10(const_cast<Tensor&>(*this));
+            break;
+        default:
+            AT_ERROR("bench__one_arg_c10 not implemented for ", at::toString(type_set()));
+    }
+#else
+    static c10::OperatorHandle op = c10::Dispatcher::singleton().findSchema({"aten::bench__one_arg_c10", ""}).value();
+    return c10::Dispatcher::singleton().lookup(op, impl::dispatchTypeId(type_set()))
+        .callUnboxed<int64_t, const Tensor &>(const_cast<Tensor&>(*this));
+#endif
+}
+inline Tensor Tensor::bench__one_arg_return_at() const {
+#ifdef USE_STATIC_DISPATCH
+    switch(tensorTypeIdToBackend(impl::dispatchTypeId(type_set()))) {
+        case Backend::CPU:
+            return CPUType::bench__one_arg_return_at(const_cast<Tensor&>(*this));
+            break;
+        default:
+            AT_ERROR("bench__one_arg_return_at not implemented for ", at::toString(type_set()));
+    }
+#else
+    static auto table = globalATenDispatch().getOpTable("aten::bench__one_arg_return_at(Tensor self) -> Tensor");
+    return table->getOp<Tensor (const Tensor &)>(type_set())(const_cast<Tensor&>(*this));
+#endif
+}
+inline Tensor Tensor::bench__one_arg_return_c10() const {
+#ifdef USE_STATIC_DISPATCH
+    switch(tensorTypeIdToBackend(impl::dispatchTypeId(type_set()))) {
+        case Backend::CPU:
+            return CPUType::bench__one_arg_return_c10(const_cast<Tensor&>(*this));
+            break;
+        default:
+            AT_ERROR("bench__one_arg_return_c10 not implemented for ", at::toString(type_set()));
+    }
+#else
+    static c10::OperatorHandle op = c10::Dispatcher::singleton().findSchema({"aten::bench__one_arg_return_c10", ""}).value();
+    return c10::Dispatcher::singleton().lookup(op, impl::dispatchTypeId(type_set()))
+        .callUnboxed<Tensor, const Tensor &>(const_cast<Tensor&>(*this));
+#endif
+}
+inline int64_t Tensor::bench__two_args_at(const Tensor & other) const {
+#ifdef USE_STATIC_DISPATCH
+    switch(tensorTypeIdToBackend(impl::dispatchTypeId(type_set()))) {
+        case Backend::CPU:
+            return CPUType::bench__two_args_at(const_cast<Tensor&>(*this), other);
+            break;
+        default:
+            AT_ERROR("bench__two_args_at not implemented for ", at::toString(type_set()));
+    }
+#else
+    static auto table = globalATenDispatch().getOpTable("aten::bench__two_args_at(Tensor self, Tensor other) -> int");
+    return table->getOp<int64_t (const Tensor &, const Tensor &)>(type_set())(const_cast<Tensor&>(*this), other);
+#endif
+}
+inline int64_t Tensor::bench__two_args_c10(const Tensor & other) const {
+#ifdef USE_STATIC_DISPATCH
+    switch(tensorTypeIdToBackend(impl::dispatchTypeId(type_set()))) {
+        case Backend::CPU:
+            return CPUType::bench__two_args_c10(const_cast<Tensor&>(*this), other);
+            break;
+        default:
+            AT_ERROR("bench__two_args_c10 not implemented for ", at::toString(type_set()));
+    }
+#else
+    static c10::OperatorHandle op = c10::Dispatcher::singleton().findSchema({"aten::bench__two_args_c10", ""}).value();
+    return c10::Dispatcher::singleton().lookup(op, impl::dispatchTypeId(type_set()))
+        .callUnboxed<int64_t, const Tensor &, const Tensor &>(const_cast<Tensor&>(*this), other);
+#endif
+}
+inline Tensor Tensor::bench__two_args_return_at(const Tensor & other) const {
+#ifdef USE_STATIC_DISPATCH
+    switch(tensorTypeIdToBackend(impl::dispatchTypeId(type_set()))) {
+        case Backend::CPU:
+            return CPUType::bench__two_args_return_at(const_cast<Tensor&>(*this), other);
+            break;
+        default:
+            AT_ERROR("bench__two_args_return_at not implemented for ", at::toString(type_set()));
+    }
+#else
+    static auto table = globalATenDispatch().getOpTable("aten::bench__two_args_return_at(Tensor self, Tensor other) -> Tensor");
+    return table->getOp<Tensor (const Tensor &, const Tensor &)>(type_set())(const_cast<Tensor&>(*this), other);
+#endif
+}
+inline Tensor Tensor::bench__two_args_return_c10(const Tensor & other) const {
+#ifdef USE_STATIC_DISPATCH
+    switch(tensorTypeIdToBackend(impl::dispatchTypeId(type_set()))) {
+        case Backend::CPU:
+            return CPUType::bench__two_args_return_c10(const_cast<Tensor&>(*this), other);
+            break;
+        default:
+            AT_ERROR("bench__two_args_return_c10 not implemented for ", at::toString(type_set()));
+    }
+#else
+    static c10::OperatorHandle op = c10::Dispatcher::singleton().findSchema({"aten::bench__two_args_return_c10", ""}).value();
+    return c10::Dispatcher::singleton().lookup(op, impl::dispatchTypeId(type_set()))
+        .callUnboxed<Tensor, const Tensor &, const Tensor &>(const_cast<Tensor&>(*this), other);
+#endif
+}
+inline int64_t Tensor::bench__three_args_at(const Tensor & other, const Tensor & third) const {
+#ifdef USE_STATIC_DISPATCH
+    switch(tensorTypeIdToBackend(impl::dispatchTypeId(type_set()))) {
+        case Backend::CPU:
+            return CPUType::bench__three_args_at(const_cast<Tensor&>(*this), other, third);
+            break;
+        default:
+            AT_ERROR("bench__three_args_at not implemented for ", at::toString(type_set()));
+    }
+#else
+    static auto table = globalATenDispatch().getOpTable("aten::bench__three_args_at(Tensor self, Tensor other, Tensor third) -> int");
+    return table->getOp<int64_t (const Tensor &, const Tensor &, const Tensor &)>(type_set())(const_cast<Tensor&>(*this), other, third);
+#endif
+}
+inline int64_t Tensor::bench__three_args_c10(const Tensor & other, const Tensor & third) const {
+#ifdef USE_STATIC_DISPATCH
+    switch(tensorTypeIdToBackend(impl::dispatchTypeId(type_set()))) {
+        case Backend::CPU:
+            return CPUType::bench__three_args_c10(const_cast<Tensor&>(*this), other, third);
+            break;
+        default:
+            AT_ERROR("bench__three_args_c10 not implemented for ", at::toString(type_set()));
+    }
+#else
+    static c10::OperatorHandle op = c10::Dispatcher::singleton().findSchema({"aten::bench__three_args_c10", ""}).value();
+    return c10::Dispatcher::singleton().lookup(op, impl::dispatchTypeId(type_set()))
+        .callUnboxed<int64_t, const Tensor &, const Tensor &, const Tensor &>(const_cast<Tensor&>(*this), other, third);
+#endif
+}
+inline Tensor Tensor::bench__three_args_return_at(const Tensor & other, const Tensor & third) const {
+#ifdef USE_STATIC_DISPATCH
+    switch(tensorTypeIdToBackend(impl::dispatchTypeId(type_set()))) {
+        case Backend::CPU:
+            return CPUType::bench__three_args_return_at(const_cast<Tensor&>(*this), other, third);
+            break;
+        default:
+            AT_ERROR("bench__three_args_return_at not implemented for ", at::toString(type_set()));
+    }
+#else
+    static auto table = globalATenDispatch().getOpTable("aten::bench__three_args_return_at(Tensor self, Tensor other, Tensor third) -> Tensor");
+    return table->getOp<Tensor (const Tensor &, const Tensor &, const Tensor &)>(type_set())(const_cast<Tensor&>(*this), other, third);
+#endif
+}
+inline Tensor Tensor::bench__three_args_return_c10(const Tensor & other, const Tensor & third) const {
+#ifdef USE_STATIC_DISPATCH
+    switch(tensorTypeIdToBackend(impl::dispatchTypeId(type_set()))) {
+        case Backend::CPU:
+            return CPUType::bench__three_args_return_c10(const_cast<Tensor&>(*this), other, third);
+            break;
+        default:
+            AT_ERROR("bench__three_args_return_c10 not implemented for ", at::toString(type_set()));
+    }
+#else
+    static c10::OperatorHandle op = c10::Dispatcher::singleton().findSchema({"aten::bench__three_args_return_c10", ""}).value();
+    return c10::Dispatcher::singleton().lookup(op, impl::dispatchTypeId(type_set()))
+        .callUnboxed<Tensor, const Tensor &, const Tensor &, const Tensor &>(const_cast<Tensor&>(*this), other, third);
+#endif
+}
+inline Tensor Tensor::bench__add_at(const Tensor & b) const {
+#ifdef USE_STATIC_DISPATCH
+    switch(tensorTypeIdToBackend(impl::dispatchTypeId(type_set()))) {
+        case Backend::CPU:
+            return CPUType::bench__add_at(const_cast<Tensor&>(*this), b);
+            break;
+        default:
+            AT_ERROR("bench__add_at not implemented for ", at::toString(type_set()));
+    }
+#else
+    static auto table = globalATenDispatch().getOpTable("aten::bench__add_at(Tensor self, Tensor b) -> Tensor");
+    return table->getOp<Tensor (const Tensor &, const Tensor &)>(type_set())(const_cast<Tensor&>(*this), b);
+#endif
+}
+inline Tensor Tensor::bench__add_c10(const Tensor & b) const {
+#ifdef USE_STATIC_DISPATCH
+    switch(tensorTypeIdToBackend(impl::dispatchTypeId(type_set()))) {
+        case Backend::CPU:
+            return CPUType::bench__add_c10(const_cast<Tensor&>(*this), b);
+            break;
+        default:
+            AT_ERROR("bench__add_c10 not implemented for ", at::toString(type_set()));
+    }
+#else
+    static c10::OperatorHandle op = c10::Dispatcher::singleton().findSchema({"aten::bench__add_c10", ""}).value();
+    return c10::Dispatcher::singleton().lookup(op, impl::dispatchTypeId(type_set()))
+        .callUnboxed<Tensor, const Tensor &, const Tensor &>(const_cast<Tensor&>(*this), b);
+#endif
+}
 inline void Tensor::backward(const Tensor & gradient, bool keep_graph, bool create_graph) const {
 #ifdef USE_STATIC_DISPATCH
      TypeDefault::backward(const_cast<Tensor&>(*this), gradient, keep_graph, create_graph);
