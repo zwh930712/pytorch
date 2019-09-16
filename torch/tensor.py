@@ -26,7 +26,7 @@ from numbers import Number
 #
 #     However, it's not sufficient to make torch.save/torch.load work.
 #     PyTorch torch.load() logic:
-#     - first construct Tenosr on top of an randomly initialized storage
+#     - first construct Tensor on top of an randomly initialized storage
 #     - load the serialized content to existing storage inplace.
 #     This approach works fine for CPU and CUDA which has associated storage,
 #     but for opaque devices like XLA, it won't pickup the storage update as
