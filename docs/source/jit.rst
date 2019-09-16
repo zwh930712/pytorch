@@ -20,7 +20,7 @@ process and loaded in a process where there is no Python dependency.
 We provide tools to incrementally transition a model from a pure Python program
 to a TorchScript program that can be run independently from Python, such as in a standalone C++ program.
 This makes it possible to train models in PyTorch using familiar tools in Python and then export
-the model via TorchScript to a production environment where Python programs may be disadvantageous.
+the model via TorchScript to a production environment where Python programs may be disadvantageous
 for performance and multi-threading reasons.
 
 For a gentle introduction to TorchScript, see the `Introduction to TorchScript <https://pytorch.org/tutorials/beginner/Intro_to_TorchScript_tutorial.html>`_ tutorial.

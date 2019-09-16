@@ -112,10 +112,10 @@ def save(m, f, _extra_files=DEFAULT_EXTRA_FILES_MAP):
            This is different from :func:`load <torch.jit.load>`'s semantics and may change in the future.
 
         Arguments:
-            m: a ScriptModule to save
-            f: a file-like object (has to implement write and flush) or a string
-               containing a file name
-            _extra_files: Map from filename to contents which will be stored as part of 'f'
+            m: A ScriptModule to save.
+            f: A file-like object (has to implement write and flush) or a string
+               containing a file name.
+            _extra_files: Map from filename to contents which will be stored as part of 'f'.
 
         .. warning::
             If you are using Python 2, ``torch.jit.save`` does NOT support ``StringIO.StringIO``
@@ -750,19 +750,19 @@ def trace(func,
         incorrect trace to be produced.
 
     Arguments:
-        func (callable or torch.nn.Module):  a Python function or ``torch.nn.Module``
+        func (callable or torch.nn.Module):  A Python function or ``torch.nn.Module``
                                              that will be run with ``example_inputs``.
                                              arguments and returns to ``func`` must be tensors
                                              or (possibly nested) tuples that
                                              contain tensors.
-        example_inputs (tuple):  a tuple of example inputs that will be passed to the function
+        example_inputs (tuple):  A tuple of example inputs that will be passed to the function
                                  while tracing. The resulting trace can be run with
                                  inputs of different types and shapes assuming the traced operations
                                  support those types and shapes. ``example_inputs`` may also be a single
-                                 Tensor in which case it is automatically wrapped in a tuple
+                                 Tensor in which case it is automatically wrapped in a tuple.
 
     Keyword arguments:
-        check_trace (bool, optional): check if the same inputs run through
+        check_trace (bool, optional): Check if the same inputs run through
                                       traced code produce the same outputs. Default: ``True``. You might want
                                       to disable this if, for example, your network contains non-
                                       deterministic ops or if you are sure that the network is correct despite
@@ -780,11 +780,11 @@ def trace(func,
                                            results diverge numerically for a known reason, such as operator fusion.
 
     Returns:
-        if ``callable`` is ``nn.Module`` or ``forward()`` of ``nn.Module``, ``trace`` returns
+        If ``callable`` is ``nn.Module`` or ``forward()`` of ``nn.Module``, ``trace`` returns
         a ``ScriptModule`` object with a single ``forward()`` method containing the traced code.
         The returned ``ScriptModule`` will have the same set of sub-modules and parameters as the
         original ``nn.Module``.
-        If ``callable`` is a standalone function, ``trace`` returns ``torch._C.Function``
+        If ``callable`` is a standalone function, ``trace`` returns ``torch._C.Function``.
 
     Example (tracing a function):
 
@@ -895,15 +895,15 @@ def trace_module(mod,
     See :func:`torch.jit.trace <torch.jit.trace>` for more information on tracing.
 
     Arguments:
-        mod (torch.nn.Module):           a ``torch.nn.Module`` containing methods whose names are
-                                         specified in ``example_inputs``. The given methods will be compiled
-                                         as a part of a single `ScriptModule`
-        example_inputs (dict):           a dict containing sample inputs indexed by method names in ``mod``
-                                         The inputs will be passed to methods whose names correspond to inputs'
-                                         keys while tracing.
-                                         ``{ 'forward' : example_forward_input, 'method2': example_method2_input}``
+        mod (torch.nn.Module):  A ``torch.nn.Module`` containing methods whose names are
+                                specified in ``example_inputs``. The given methods will be compiled
+                                as a part of a single `ScriptModule`.
+        example_inputs (dict):  A dict containing sample inputs indexed by method names in ``mod``
+                                The inputs will be passed to methods whose names correspond to inputs'
+                                keys while tracing.
+                                ``{ 'forward' : example_forward_input, 'method2': example_method2_input}``
     Keyword arguments:
-        check_trace (bool, optional): check if the same inputs run through
+        check_trace (bool, optional): Check if the same inputs run through
                                       traced code produce the same outputs. Default: ``True``. You might want
                                       to disable this if, for example, your network contains non-
                                       deterministic ops or if you are sure that the network is correct despite
@@ -1481,6 +1481,16 @@ if _enabled:
 
         ``ScriptModule``\s should not be created manually, instead use
         either :func:`tracing <torch.jit.trace>` or :func:`scripting <torch.jit.script>`.
+
+        * Tracing records the tensor operations as executed with a set of example inputs and uses these
+          operations to construct a computation graph. You can use the full dynamic behavior of Python with tracing,
+          but values other than Tensors and control flow aren't supported.
+
+        * Scripting inspects the Python code of the model
+          and compiles it to TorchScript. Scripting allows the use of many `types`_ of values and supports dynamic control flow,
+          but not all features of Python are supported by the compiler.
+
+        Tracing and scripting can be :ref:`composed as necessary <Types_>`.
         """
         def __init__(self, optimize=None, _qualified_name=None, _compilation_unit=None, _cpp_module=None):
             if _qualified_name is None:
