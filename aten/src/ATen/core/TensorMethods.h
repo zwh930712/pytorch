@@ -1910,13 +1910,7 @@ inline Tensor Tensor::rsqrt() const {
 }
 inline Tensor & Tensor::rsqrt_() const {
 #ifdef USE_STATIC_DISPATCH
-    switch(tensorTypeIdToBackend(impl::dispatchTypeId(type_set()))) {
-        case Backend::CPU:
-            return CPUType::rsqrt_(const_cast<Tensor&>(*this));
-            break;
-        default:
-            AT_ERROR("rsqrt_ not implemented for ", at::toString(type_set()));
-    }
+    return TypeDefault::rsqrt_(const_cast<Tensor&>(*this));
 #else
     static auto table = globalATenDispatch().getOpTable("aten::rsqrt_(Tensor(a!) self) -> Tensor(a!)");
     return table->getOp<Tensor & (Tensor &)>(type_set())(const_cast<Tensor&>(*this));
