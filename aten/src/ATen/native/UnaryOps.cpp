@@ -84,6 +84,10 @@ Tensor& rsqrt_out(Tensor& result, const Tensor& self) { return unary_op_impl_out
 Tensor rsqrt(const Tensor& self) { return unary_op_impl(self, at::rsqrt_out); }
 Tensor& rsqrt_(Tensor& self) { return unary_op_impl_(self, at::rsqrt_out); }
 
+Tensor& trunc_out(Tensor& result, const Tensor& self) { return unary_op_impl_out(result, self, trunc_stub); }
+Tensor trunc(const Tensor& self) { return unary_op_impl(self, at::trunc_out); }
+Tensor& trunc_(Tensor& self) { return unary_op_impl_(self, at::trunc_out); }
+
 Tensor& neg_out(Tensor& result, const Tensor& self) {
   TORCH_CHECK(self.scalar_type() != kBool,
               "Negation, the `-` operator, on a bool tensor is not supported. "
@@ -288,7 +292,6 @@ IMPLEMENT_UNARY_OP_VEC(sinh)
 IMPLEMENT_UNARY_OP_VEC(sqrt)
 IMPLEMENT_UNARY_OP_VEC(tan)
 IMPLEMENT_UNARY_OP_VEC(tanh)
-IMPLEMENT_UNARY_OP_VEC(trunc)
 
 DEFINE_DISPATCH(abs_stub);
 DEFINE_DISPATCH(acos_stub);
