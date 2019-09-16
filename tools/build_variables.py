@@ -68,6 +68,8 @@ libtorch_sources = [
     "torch/csrc/jit/export.cpp",
     "torch/csrc/jit/pass_manager.cpp",
     "torch/csrc/jit/pickler.cpp",
+    "torch/csrc/jit/unpickler.cpp",
+    "torch/csrc/jit/utils.cpp",
     "torch/csrc/jit/graph_executor.cpp",
     "torch/csrc/jit/import.cpp",
     "torch/csrc/jit/import_legacy.cpp",
@@ -155,6 +157,9 @@ libtorch_sources = [
     "torch/csrc/jit/fuser/cpu/fused_kernel.cpp",
     "torch/csrc/jit/fuser/interface.cpp",
     "torch/csrc/jit/function.cpp",
+    "torch/csrc/jit/lite_interpreter/bytecode.cpp",
+    "torch/csrc/jit/lite_interpreter/import_bytecode.cpp",
+    "torch/csrc/jit/lite_interpreter/register_ins_ops.cpp",
 ]
 
 libtorch_cuda_sources = [
