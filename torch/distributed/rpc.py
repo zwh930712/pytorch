@@ -4,8 +4,8 @@ from . import invoke_rpc_builtin, invoke_rpc_python_udf, invoke_remote_builtin
 from . import init_rref_context
 from . import ProcessGroupAgent
 from . import WorkerId
-from .internal_rpc_utils import serialize, PythonUDF
 from .rpc_backend_handler import is_backend_registered, registered_init_rpc
+from .internal_rpc_utils import serialize, PythonUDF, _thread_local_tensor_tables
 
 import sys
 import torch
@@ -232,8 +232,10 @@ def rpc(to, func, args=None, kwargs=None, async_call=False):
         fut = invoke_rpc_builtin(
             _agent, _to_worker_id(to), qualified_name, *args, **kwargs)
     else:
-        fut = invoke_rpc_python_udf(
-            _agent, _to_worker_id(to), serialize(PythonUDF(func, args, kwargs)))
+        fut = invoke_rpc_python_udf(_agent,
+                                    _to_worker_id(to),
+                                    serialize(PythonUDF(func, args, kwargs)),
+                                    _thread_local_tensor_tables.send_tables)
 
     if async_call:
         return fut
