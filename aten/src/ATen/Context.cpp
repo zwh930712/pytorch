@@ -95,12 +95,28 @@ bool Context::hasLAPACK() const {
 #endif
 }
 
-at::QEngine Context::preferredQuantizedEngine() const {
+at::QEngine Context::qEngine() const {
   return quantized_engine;
 }
 
-void Context::setPreferredQuantizedEngine(at::QEngine e) {
-  quantized_engine = e;
+void Context::setQEngine(at::QEngine e) {
+  switch (e) {
+    case at::kNoQEngine:
+      quantized_engine = e;
+      break;
+    case at::kFBGEMM:
+#ifdef USE_FBGEMM
+      quantized_engine = e;
+      break;
+#endif
+    case at::kQNNPACK:
+#ifdef USE_PYTORCH_QNNPACK
+      quantized_engine = e;
+      break;
+#endif
+    default:
+      TORCH_CHECK(false, "quantized engine ", toString(e), "is not supported");
+  }
 }
 
 bool Context::setFlushDenormal(bool on) {
